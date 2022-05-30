@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package coordinator;
+
+service Coordinator {
+  rpc ValidateOne (ValidateOneRequest) returns (stream ValidateResponse) {}
+}
+
+message ValidateOneRequest {
+  uint32 data_id = 1;
+  repeated string tests = 2;
+}
+
+message ValidateResponse {
+  uint32 data_id = 1;
+  uint32 flag_id = 2;
+  uint32 flag = 3;
+}
