@@ -1,5 +1,6 @@
 use coordinator::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator::{ValidateOneRequest, ValidateResponse};
+use daggy::Dag;
 use futures::Stream;
 use std::{pin::Pin, time::Duration};
 use tokio::sync::mpsc;
@@ -10,10 +11,34 @@ pub mod coordinator {
     tonic::include_proto!("coordinator");
 }
 
+fn construct_test_dependency_dag() -> Dag<String, ()> {
+    let mut dag = Dag::<String, ()>::new();
+
+    let et1 = dag.add_node("end_test_1".to_string());
+    let et2 = dag.add_node("end_test_2".to_string());
+
+    let (_, dt1) = dag.add_child(et1, (), "dep_test1".to_string());
+    let (_, dt2) = dag.add_child(et2, (), "dep_test2".to_string());
+
+    let (_, dtc) = dag.add_child(dt1, (), "common_test".to_string());
+    dag.add_edge(dt2, dtc, ()).unwrap();
+
+    dag
+}
+
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
-#[derive(Default)]
-pub struct MyCoordinator {}
+pub struct MyCoordinator {
+    test_dependency_dag: Dag<String, ()>,
+}
+
+impl MyCoordinator {
+    fn new(test_dependency_dag: Dag<String, ()>) -> Self {
+        MyCoordinator {
+            test_dependency_dag,
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl Coordinator for MyCoordinator {
@@ -74,7 +99,7 @@ impl Coordinator for MyCoordinator {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse().unwrap();
-    let coordinator = MyCoordinator::default();
+    let coordinator = MyCoordinator::new(construct_test_dependency_dag());
 
     println!("GreeterServer listening on {}", addr);
 
