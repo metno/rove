@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/intarga/dagrid"
 	pb "github.com/metno/rove/proto"
@@ -15,7 +16,9 @@ type server struct {
 }
 
 func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_ValidateOneServer) error {
-	return nil
+	subdag, err := constructSubDag(s.dag, in.Tests)
+
+	return err
 }
 
 func constructDag() dagrid.Dag {
@@ -33,6 +36,47 @@ func constructDag() dagrid.Dag {
 	dag.Add_edge(test5, test6)
 
 	return dag
+}
+
+func constructSubDagIter(dag *dagrid.Dag, subdag *dagrid.Dag, curr_index int, nodes_visited map[int]int) {
+	for child := range dag.Nodes[curr_index].Children {
+		new_index, ok := nodes_visited[child]
+
+		if !ok {
+			new_index = subdag.Insert_child(nodes_visited[curr_index], dag.Nodes[child].Contents)
+			nodes_visited[child] = new_index
+
+			constructSubDagIter(dag, subdag, child, nodes_visited)
+		} else {
+			subdag.Add_edge(nodes_visited[curr_index], new_index)
+		}
+	}
+}
+
+// TODO: write a test for this
+// TODO: maybe move this to package dagrid?
+func constructSubDag(dag dagrid.Dag, required_nodes []string) (dagrid.Dag, error) {
+	subdag := dagrid.New_dag()
+
+	// nodes are put into the map when visited as [dag_index]subdag_index
+	nodes_visited := make(map[int]int)
+
+	for _, req := range required_nodes {
+		index, ok := dag.IndexLookup[req]
+		if !ok {
+			return dagrid.Dag{}, errors.New("required test not found in dag")
+		}
+
+		_, ok = nodes_visited[index]
+		if !ok {
+			new_index := subdag.Insert_free_node(dag.Nodes[index].Contents)
+			nodes_visited[index] = new_index
+
+			constructSubDagIter(&dag, &subdag, index, nodes_visited)
+		}
+	}
+
+	return subdag, nil
 }
 
 func main() {
