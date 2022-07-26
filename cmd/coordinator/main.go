@@ -10,17 +10,6 @@ import (
 	"net"
 )
 
-type server struct {
-	pb.UnimplementedCoordinatorServer
-	dag dagrid.Dag
-}
-
-func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_ValidateOneServer) error {
-	subdag, err := constructSubDag(s.dag, in.Tests)
-
-	return err
-}
-
 func constructDag() dagrid.Dag {
 	dag := dagrid.New_dag()
 
@@ -77,6 +66,17 @@ func constructSubDag(dag dagrid.Dag, required_nodes []string) (dagrid.Dag, error
 	}
 
 	return subdag, nil
+}
+
+type server struct {
+	pb.UnimplementedCoordinatorServer
+	dag dagrid.Dag
+}
+
+func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_ValidateOneServer) error {
+	subdag, err := constructSubDag(s.dag, in.Tests)
+
+	return err
 }
 
 func main() {
