@@ -7,7 +7,9 @@ import (
 	pb "github.com/metno/rove/proto"
 	"google.golang.org/grpc"
 	"log"
+	"math/rand"
 	"net"
+	"time"
 )
 
 func constructDag() dagrid.Dag {
@@ -66,6 +68,12 @@ func constructSubDag(dag dagrid.Dag, required_nodes []string) (dagrid.Dag, error
 	}
 
 	return subdag, nil
+}
+
+func runTestPlaceholder(test_name string, ch chan<- string) {
+	time.Sleep(time.Duration(500+rand.Intn(500)) * time.Millisecond)
+
+	ch <- test_name
 }
 
 type server struct {
