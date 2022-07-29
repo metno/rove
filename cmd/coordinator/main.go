@@ -83,6 +83,45 @@ type server struct {
 
 func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_ValidateOneServer) error {
 	subdag, err := constructSubDag(s.dag, in.Tests)
+	nodes_left := len(subdag.Nodes) // warning: this assumes no nodes were removed from the dag
+
+	// how many children of each node have been run
+	// form: children_completed_map[node_index]children_completed
+	children_completed_map := make(map[int]int)
+
+	ch := make(chan string)
+
+	for leaf_index := range subdag.Leaves {
+		go runTestPlaceholder(subdag.Nodes[leaf_index].Contents, ch)
+	}
+
+	for completed_test := range ch {
+		nodes_left--
+
+		// TODO: send data back to the client
+
+		if nodes_left == 0 {
+			return nil
+		}
+
+		completed_index := subdag.IndexLookup[completed_test]
+
+		for parent_index := range subdag.Nodes[completed_index].Parents {
+			// TODO: think the contents of this loop can be simplified
+			children_completed, ok := children_completed_map[parent_index]
+			if !ok { // FIXME: is this necessary? default value of int should be 0 anyway
+				children_completed = 0
+			}
+
+			children_completed++
+			children_completed_map[parent_index] = children_completed
+
+			if children_completed >= len(subdag.Nodes[parent_index].Children) {
+				go runTestPlaceholder(subdag.Nodes[parent_index].Contents, ch)
+			}
+		}
+
+	}
 
 	return err
 }
