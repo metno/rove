@@ -98,7 +98,8 @@ func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_Valid
 	for completed_test := range ch {
 		nodes_left--
 
-		// TODO: send data back to the client
+		// TODO: send real data back to the client
+		srv.Send(&pb.ValidateResponse{DataId: 1, FlagId: 1, Flag: 1})
 
 		if nodes_left == 0 {
 			return nil
