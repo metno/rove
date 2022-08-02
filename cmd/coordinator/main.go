@@ -99,7 +99,7 @@ func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_Valid
 		nodes_left--
 
 		// TODO: send real data back to the client
-		srv.Send(&pb.ValidateResponse{DataId: 1, FlagId: 1, Flag: 1})
+		srv.Send(&pb.ValidateResponse{DataId: 1, FlagId: uint32(s.dag.IndexLookup[completed_test]), Flag: 1})
 
 		if nodes_left == 0 {
 			return nil
