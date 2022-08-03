@@ -31,7 +31,7 @@ func main() {
 		if err != nil {
 			panic(fmt.Sprintf("cannot receive %v", err))
 		}
-		fmt.Printf("Resp received: %d", resp.Flag)
+		fmt.Printf("Resp received: %d\n", resp.FlagId)
 	}
 
 }
