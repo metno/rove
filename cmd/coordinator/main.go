@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/intarga/dagrid"
-	pb "github.com/metno/rove/proto"
+	pb "github.com/metno/rove/proto/coordinator"
 	"google.golang.org/grpc"
 	"log"
 	"math/rand"

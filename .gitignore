@@ -1,2 +1,4 @@
 /target
 *.pb.go
+*.pb.cc
+*.pb.h
