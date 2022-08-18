@@ -11,6 +11,8 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.48.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
+    internal/titanlib v0.0.0
 )
 
 replace github.com/intarga/dagrid => ../dagrid
+replace internal/titanlib => ./internal/titanlib
