@@ -1,6 +1,6 @@
 ## Design Goals
 
-- Efficienct and scalable
+- Efficient and scalable
 - Supports spatial tests
 - Supports homebrew (researcher-written) tests (Python?)
 - Maintainable going forward
@@ -27,19 +27,34 @@ If we link titanlib to support spatial tests, we have to deal with linking in ou
 
 ## Efficiency (5/5)
 
+No notes.
+
 ## Spatial test support (5/5)
+
+Can call titanlib directly.
 
 ## Homebrew test support (5/5)
 
+Native CPython bindings.
+
 ## Maintainability (?/5)
+
+Lack of modern tooling adds a significant maintenance burden. The language is in decline, so it's unclear how easy it will be to find competency going forward. The developer on the project has little familiarity or comfort with C++.
 
 # Rust
 
 ## Efficiency (5/5)
 
+No notes.
+
 ## Spatial test support (5/5)
+
+Good geoscience libraries available.
 
 ## Homebrew test support (5/5)
 
+Native CPython bindings.
+
 ## Maintainability (?/5)
 
+Modern toolchain, growing language. New-ish to met, only used by one other team. The developer on the project is experienced and productive with Rust.
