@@ -1,0 +1,27 @@
+@startuml Confident_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+
+title
+  Confident Context Diagram
+end title 
+
+Person(user, "User", "Met employee")
+Person(automated_user, "Automated User", "Cron or other automated system")
+
+System(confident, "Confident", "System for running quality control tests on observation data")
+System_Ext(frost, "Frost", "Rest API")
+SystemDb_Ext(oda, "ODA", "Observation database.")
+SystemDb(lustre, "Lustre", "File system")
+
+Rel(user, confident, "creates manual API calls to")
+Rel(confident, user, "sends aggregated results back to")
+Rel(automated_user, confident, "creates automated API calls to")
+Rel(confident, automated_user, "sends aggregated results back to")
+
+Rel(confident, oda, "gets data needed for")
+Rel(automated_user, oda, "write flags to")
+Rel(confident, lustre, "gets data needed for")
+Rel(user, frost, "gets output of tests, data quality information from")
+@enduml
