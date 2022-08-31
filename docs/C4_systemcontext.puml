@@ -13,18 +13,22 @@ SystemDb(lustre, "Lustre", "File system")
 
 System_Boundary(K8s, "Production (k8s)") {
   Container(controller, "Controller", "GRPC API used to control the running of tests")
-  Container(runner, "Runner(s)", "Runner(s) which contain testing libraries and shared data cache")
+  Container(runner, "Runner", "Test runner")
+  Container(libraries, "Libraries", "Test libraries (both efficient core testing, and more adaptable testing libraries)")
+  Container(cache, "Cache", "Shared data cache connected to multiple sources of observations / data needed for testing")
 }
 
 Rel(controller, runner, "Controller requests test runs from runner(s)")
 Rel(runner, controller, "Runner sends results back to controller")
+Rel(runner, libraries, "runner uses test libraries for quality controlling the observations")
+Rel(runner, cache, "Runner gets data from cache")
 Rel(controller, automated_user, "Controller sends aggregated results back to user")
 Rel(controller, user, "Controller sends aggregated results back to user")
 Rel(automated_user, oda, "Write flags to database")
 
 Rel(user, controller, "Manual API calls")
 Rel(automated_user, controller, "Cron jobs, YAML definitions for what tests should be run on new data etc.")
-Rel(runner, oda, "Get data needed for cache")
-Rel(runner, lustre, "Get data needed for cache")
+Rel(cache, oda, "Get data needed for cache")
+Rel(cache, lustre, "Get data needed for cache")
 Rel(user, frost, "Get output of tests, data quality information")
 @enduml
