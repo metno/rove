@@ -16,9 +16,7 @@ SystemDb_Ext(oda, "ODA", "Observation database.")
 SystemDb(lustre, "Lustre", "File system")
 
 Rel(user, confident, "creates manual API calls to")
-Rel(confident, user, "sends aggregated results back to")
 Rel(automated_user, confident, "creates automated API calls to")
-Rel(confident, automated_user, "sends aggregated results back to")
 
 Rel(confident, oda, "gets data needed for")
 Rel(automated_user, oda, "write flags to")

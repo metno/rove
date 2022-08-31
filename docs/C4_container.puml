@@ -14,20 +14,17 @@ System_Ext(frost, "Frost", "Rest API")
 SystemDb_Ext(oda, "ODA", "Observation database.")
 SystemDb(lustre, "Lustre", "File system")
 
-System_Boundary(K8s, "Production (k8s)") {
+System_Boundary(Confident, "QC system for observations") {
   Container(controller, "Controller", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
   Container(runner, "Runner", "The runner(s) contain the QC libraries and data cache, and can horizontally scale to run tests in parallel.")
 }
 
-Rel(controller, runner, "requests QC tests to be run by")
-Rel(runner, controller, "returns results to")
-Rel(controller, automated_user, "sends aggregated results back to")
-Rel(controller, user, "sends aggregated results back to")
-Rel(automated_user, oda, "writes flags to")
+Rel(controller, runner, "requests QC tests to be run by", "GRPC")
+Rel(automated_user, oda, "writes flags to", "GRPC")
 
-Rel(user, controller, "creates manual API calls to")
-Rel(automated_user, controller, "creates automated API calls to")
-Rel(runner, oda, "gets data needed for")
+Rel(user, controller, "creates manual API calls to", "GRPC")
+Rel(automated_user, controller, "creates automated API calls to", "GRPC")
+Rel(runner, oda, "gets data needed for", "GRPC")
 Rel(runner, lustre, "gets data needed for")
-Rel(user, frost, "gets output of tests, data quality information from")
+Rel(user, frost, "gets output of tests, data quality information from", "REST API")
 @enduml
