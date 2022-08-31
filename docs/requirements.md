@@ -18,7 +18,7 @@ _If we approximately double current number of stations and increase the resoluti
 
 * **Scalability:** Able to meet current/future needs (particularly when larger ammounts of data come in at particular times)
 * **Availability:** Run QC in "real time" (at least minimize wait for flags for the most prioritized / basic QC) WMO standard is < 5mins
-* **Robustness:** Able to work if one datarom is down, but may be slower due to less resources and / or need to prioritize certain data
+* **Robustness:** Able to work if one datarom is down, but may need to priotize certain data and allow the rest to be run more slowly or wait until the outaget is resolved
 * **Maintainability:** Simple as possible architecture / deployment, while still able to adapt to future changes if needed
-* **Performance:** Efficient code for the core features / QC
+* **Performance:** Efficient code for the core features / QC (how efficient this needs to be is somewhat dependent on the actual number of observations the system needs to be able to QC and over what time, as well as how they will be processed)
 * **Measurability:** Prometheus metrics for monitoring
