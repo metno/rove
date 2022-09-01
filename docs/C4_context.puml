@@ -7,19 +7,26 @@ title
   Confident Context Diagram
 end title 
 
-Person(user, "User", "Met employee")
-Person(automated_user, "Automated User", "Cron or other automated system")
+Person(user, "User", "A user at MET that may want to run extra QC or integrate a new QC tests and see the outcome")
+System(new_obs_system, "Obsklim automated", "Automated system that triggers the QC that needs to run automatically")
+System_Ext(kafka, "Data ingress", "New observations come to MET, currently uses Kafka")
+System_Ext(other_department, "Other automated testing", "Another department at MET may want to run QC on data in an automated way")
 
 System(confident, "Confident", "System for running quality control tests on observation data")
 System_Ext(frost, "Frost", "Rest API")
 SystemDb_Ext(oda, "ODA", "Observation database.")
-SystemDb(lustre, "Lustre", "File system")
+SystemDb_Ext(lustre, "Lustre", "File system")
+SystemDb_Ext(datasources, "Other data sources", "Other data sources needed for QC")
 
-Rel(user, confident, "creates manual API calls to")
-Rel(automated_user, confident, "creates automated API calls to")
+Rel_U(new_obs_system, kafka, "opens stream, and receives notifications of arrival of new data")
 
-Rel(confident, oda, "gets data needed for")
-Rel(automated_user, oda, "write flags to")
-Rel(confident, lustre, "gets data needed for")
+Rel(user, confident, "creates manual API calls, and receives QC flags in return")
+Rel(new_obs_system, confident, "creates automated API calls to, and receives QC flags in return")
+Rel(other_department, confident, "creates automated API calls to, and receives QC flags in return")
+
+Rel(confident, oda, "gets data needed for QC")
+Rel(new_obs_system, oda, "write flags to")
+Rel(confident, lustre, "gets data needed for QC")
+Rel(confident, datasources, "gets data needed for QC")
 Rel(user, frost, "gets output of tests, data quality information from")
 @enduml

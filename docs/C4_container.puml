@@ -7,24 +7,29 @@ title
   Confident Container diagram
 end title 
 
-Person(user, "User", "Met employee")
-Person(automated_user, "Automated User", "Cron or other automated system")
+Person(user, "User", "A user at MET that may want to run extra QC or integrate a new QC tests and see the outcome")
+System(new_obs_system, "Obsklim automated", "Automated system that triggers the QC that needs to run automatically")
+System_Ext(kafka, "Data ingress", "New observations come to MET, currently uses Kafka")
 
 System_Ext(frost, "Frost", "Rest API")
 SystemDb_Ext(oda, "ODA", "Observation database.")
-SystemDb(lustre, "Lustre", "File system")
+SystemDb_Ext(lustre, "Lustre", "File system")
+SystemDb_Ext(datasources, "Other data sources", "Other data sources needed for QC")
 
 System_Boundary(Confident, "QC system for observations") {
-  Container(controller, "Controller", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
-  Container(runner, "Runner", "The runner(s) contain the QC libraries and data cache, and can horizontally scale to run tests in parallel.")
+  Container(controller, "Controller", "Golang", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
+  Container(runner, "Runner", "Rust/C++", "The runner(s) contain the QC libraries and data cache, and can horizontally scale to run tests in parallel.")
 }
 
-Rel(controller, runner, "requests QC tests to be run by", "GRPC")
-Rel(automated_user, oda, "writes flags to", "GRPC")
+Rel_U(new_obs_system, kafka, "opens stream, and receives notifications of arrival of new data", "sarama")
 
-Rel(user, controller, "creates manual API calls to", "GRPC")
-Rel(automated_user, controller, "creates automated API calls to", "GRPC")
-Rel(runner, oda, "gets data needed for", "GRPC")
-Rel(runner, lustre, "gets data needed for")
-Rel(user, frost, "gets output of tests, data quality information from", "REST API")
+Rel(controller, runner, "requests QC tests to be run and receives QC flags in return", "GRPC")
+Rel(new_obs_system, oda, "writes QC flags to", "GRPC")
+
+Rel(user, controller, "creates manual API calls, and receives QC flags in return", "HTTPS")
+Rel(new_obs_system, controller, "creates automated API calls to, and receives QC flags in return", "GRPC")
+Rel(runner, oda, "gets data needed for QC", "GRPC")
+Rel(runner, lustre, "gets data needed for QC")
+Rel(runner, datasources, "gets data needed for QC")
+Rel(user, frost, "gets output of QC tests, or more general data quality information from", "REST API")
 @enduml
