@@ -8,7 +8,7 @@ title
 end title 
 
 Person(user, "User", "A user at MET that may want to run extra QC or integrate a new QC tests and see the outcome")
-System(new_obs_system, "Obsklim automated", "Automated system that triggers the QC that needs to run automatically")
+System(new_obs_system, "Met operative automated", "Automated system that triggers the QC that needs to run automatically")
 System_Ext(kafka, "Data ingress", "New observations come to MET, currently uses Kafka")
 System_Ext(other_department, "Other automated testing", "Another department at MET may want to run QC on data in an automated way")
 
@@ -20,9 +20,9 @@ SystemDb_Ext(datasources, "Other data sources", "Other data sources needed for Q
 
 Rel_U(new_obs_system, kafka, "opens stream, and receives notifications of arrival of new data")
 
-Rel(user, confident, "creates manual API calls, and receives QC flags in return")
-Rel(new_obs_system, confident, "creates automated API calls to, and receives QC flags in return")
-Rel(other_department, confident, "creates automated API calls to, and receives QC flags in return")
+Rel(user, confident, "creates manual API calls, and receives QC flags from")
+Rel(new_obs_system, confident, "creates automated API calls to, and receives QC flags from")
+Rel(other_department, confident, "creates automated API calls to, and receives QC flags from")
 
 Rel(confident, oda, "gets data needed for QC")
 Rel(new_obs_system, oda, "write flags to")
