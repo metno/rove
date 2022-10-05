@@ -8,7 +8,7 @@ title
 end title
 
 Person(user, "User", "A user at MET that may want to run extra QC or integrate a new QC tests and see the outcome")
-System(new_obs_system, "Obsklim automated", "Automated system that triggers the QC that needs to run automatically")
+System(new_obs_system, "Met operative automated", "Automated system that triggers the QC that needs to run automatically")
 System_Ext(kafka, "Data ingress", "New observations come to MET, currently uses Kafka")
 
 System_Ext(frost, "Frost", "Rest API")
