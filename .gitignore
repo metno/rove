@@ -2,3 +2,4 @@
 *.pb.go
 *.pb.cc
 *.pb.h
+docs/plantuml.jar
