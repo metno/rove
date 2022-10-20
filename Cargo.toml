@@ -9,3 +9,9 @@ name = "runner"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tonic = "0.7.2"
+tokio = { version = "1.18.2", features = ["full"] }
+prost = "0.10.4"
+
+[build-dependencies]
+tonic-build = "0.7.2"
