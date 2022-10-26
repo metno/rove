@@ -12,6 +12,7 @@ name = "runner"
 tonic = "0.7.2"
 tokio = { version = "1.18.2", features = ["full"] }
 prost = "0.10.4"
+titanlib-rs = { git = "https://github.com/intarga/titanlib-rs" }
 
 [build-dependencies]
 tonic-build = "0.7.2"
