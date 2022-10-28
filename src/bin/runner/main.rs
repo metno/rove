@@ -19,13 +19,15 @@ impl Runner for MyRunner {
     ) -> Result<Response<RunTestResponse>, Status> {
         println!("Got a request: {:?}", request);
 
-        let data = cache::get_timeseries_data(1, std::time::SystemTime::now()); //TODO use actual arguments
-        let result = dip_check(data, 2., 3.); // TODO load actual params
-
-        let response = RunTestResponse {
-            flag: result as u32,
-            flag_id: 0,
+        let flag: u32 = match request.into_inner().test.as_str() {
+            "dip_check" => {
+                let data = cache::get_timeseries_data(1, std::time::SystemTime::now()); //TODO use actual arguments
+                dip_check(data, 2., 3.) as u32
+            }
+            _ => return Err(Status::invalid_argument("invalid test name")),
         };
+
+        let response = RunTestResponse { flag, flag_id: 0 };
 
         Ok(Response::new(response))
     }
