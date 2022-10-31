@@ -829,6 +829,7 @@ name = "rove"
 version = "0.1.0"
 dependencies = [
  "prost",
+ "prost-types",
  "titanlib-rs",
  "tokio",
  "tonic",

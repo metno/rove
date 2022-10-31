@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "./proto";
 
 package runner;
@@ -10,7 +12,8 @@ service Runner {
 
 message RunTestRequest {
   uint32 data_id = 1;
-  string test = 2;
+  google.protobuf.Timestamp time = 2;
+  string test = 3;
 }
 
 message RunTestResponse {
