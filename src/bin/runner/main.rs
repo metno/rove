@@ -23,7 +23,12 @@ impl Runner for MyRunner {
 
         let flag: u32 = match req.test.as_str() {
             "dip_check" => {
-                let data = cache::get_timeseries_data(req.data_id, req.time.unwrap().seconds);
+                let data = cache::get_timeseries_data(
+                    req.data_id,
+                    req.time
+                        .ok_or(Status::invalid_argument("invalid timestamp"))?
+                        .seconds,
+                );
                 dip_check(data, 2., 3.) as u32 //TODO use actual test params
             }
             _ => return Err(Status::invalid_argument("invalid test name")),
