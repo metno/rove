@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/intarga/dagrid"
-	pb "github.com/metno/rove/proto/coordinator"
+	pb_coordinator "github.com/metno/rove/proto/coordinator"
+	pb_runner "github.com/metno/rove/proto/runner"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"math/rand"
 	"net"
@@ -76,12 +79,31 @@ func runTestPlaceholder(test_name string, ch chan<- string) {
 	ch <- test_name
 }
 
+func runTest(test_name string, ch chan<- string) {
+	//
+	conn, err := grpc.Dial("localhost:1338")
+	if err != nil {
+		log.Fatalf("connection to runner failed: %v", err)
+	}
+	client := pb_runner.NewRunnerClient(conn)
+
+	req := pb_runner.RunTestRequest{
+		DataId: 1,
+		Test:   test_name,
+		Time:   timestamppb.Now(),
+	}
+
+	_, err = client.RunTest(context.Background(), &req)
+
+	ch <- test_name
+}
+
 type server struct {
-	pb.UnimplementedCoordinatorServer
+	pb_coordinator.UnimplementedCoordinatorServer
 	dag dagrid.Dag
 }
 
-func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_ValidateOneServer) error {
+func (s *server) ValidateOne(in *pb_coordinator.ValidateOneRequest, srv pb_coordinator.Coordinator_ValidateOneServer) error {
 	subdag, err := constructSubDag(s.dag, in.Tests)
 	nodes_left := len(subdag.Nodes) // warning: this assumes no nodes were removed from the dag
 
@@ -92,14 +114,14 @@ func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_Valid
 	ch := make(chan string)
 
 	for leaf_index := range subdag.Leaves {
-		go runTestPlaceholder(subdag.Nodes[leaf_index].Contents, ch)
+		go runTest(subdag.Nodes[leaf_index].Contents, ch)
 	}
 
 	for completed_test := range ch {
 		nodes_left--
 
 		// TODO: send real data back to the client
-		srv.Send(&pb.ValidateResponse{DataId: 1, FlagId: uint32(s.dag.IndexLookup[completed_test]), Flag: 1})
+		srv.Send(&pb_coordinator.ValidateResponse{DataId: 1, FlagId: uint32(s.dag.IndexLookup[completed_test]), Flag: 1})
 
 		if nodes_left == 0 {
 			return nil
@@ -118,7 +140,7 @@ func (s *server) ValidateOne(in *pb.ValidateOneRequest, srv pb.Coordinator_Valid
 			children_completed_map[parent_index] = children_completed
 
 			if children_completed >= len(subdag.Nodes[parent_index].Children) {
-				go runTestPlaceholder(subdag.Nodes[parent_index].Contents, ch)
+				go runTest(subdag.Nodes[parent_index].Contents, ch)
 			}
 		}
 
@@ -133,7 +155,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterCoordinatorServer(s, &server{dag: constructDag()})
+	pb_coordinator.RegisterCoordinatorServer(s, &server{dag: constructDag()})
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
