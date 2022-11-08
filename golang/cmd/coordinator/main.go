@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+type testResp struct {
+	name string
+	resp *pb_runner.RunTestResponse
+}
+
 func constructDag() dagrid.Dag {
 	dag := dagrid.New_dag()
 
@@ -79,8 +84,7 @@ func runTestPlaceholder(test_name string, ch chan<- string) {
 	ch <- test_name
 }
 
-func runTest(test_name string, ch chan<- string) {
-	//
+func runTest(test_name string, ch chan<- testResp) {
 	conn, err := grpc.Dial("localhost:1338")
 	if err != nil {
 		log.Fatalf("connection to runner failed: %v", err)
@@ -90,12 +94,12 @@ func runTest(test_name string, ch chan<- string) {
 	req := pb_runner.RunTestRequest{
 		DataId: 1,
 		Test:   test_name,
-		Time:   timestamppb.Now(),
+		Time:   timestamppb.Now(), // TODO replace with actual timestamp
 	}
 
-	_, err = client.RunTest(context.Background(), &req)
+	resp, err := client.RunTest(context.Background(), &req)
 
-	ch <- test_name
+	ch <- testResp{name: test_name, resp: resp}
 }
 
 type server struct {
@@ -111,7 +115,7 @@ func (s *server) ValidateOne(in *pb_coordinator.ValidateOneRequest, srv pb_coord
 	// form: children_completed_map[node_index]children_completed
 	children_completed_map := make(map[int]int)
 
-	ch := make(chan string)
+	ch := make(chan testResp)
 
 	for leaf_index := range subdag.Leaves {
 		go runTest(subdag.Nodes[leaf_index].Contents, ch)
@@ -121,13 +125,13 @@ func (s *server) ValidateOne(in *pb_coordinator.ValidateOneRequest, srv pb_coord
 		nodes_left--
 
 		// TODO: send real data back to the client
-		srv.Send(&pb_coordinator.ValidateResponse{DataId: 1, FlagId: uint32(s.dag.IndexLookup[completed_test]), Flag: 1})
+		srv.Send(&pb_coordinator.ValidateResponse{DataId: in.DataId, FlagId: uint32(s.dag.IndexLookup[completed_test.name]), Flag: completed_test.resp.Flag}) // FIXME: is this FlagId correct? or should we use the one from the resp?
 
 		if nodes_left == 0 {
 			return nil
 		}
 
-		completed_index := subdag.IndexLookup[completed_test]
+		completed_index := subdag.IndexLookup[completed_test.name]
 
 		for parent_index := range subdag.Nodes[completed_index].Parents {
 			// TODO: think the contents of this loop can be simplified
