@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "./proto";
 
 package coordinator;
@@ -10,7 +12,8 @@ service Coordinator {
 
 message ValidateOneRequest {
   uint32 data_id = 1;
-  repeated string tests = 2;
+  google.protobuf.Timestamp time = 2;
+  repeated string tests = 3;
 }
 
 message ValidateResponse {

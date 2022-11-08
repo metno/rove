@@ -84,7 +84,7 @@ func runTestPlaceholder(test_name string, ch chan<- string) {
 	ch <- test_name
 }
 
-func runTest(test_name string, ch chan<- testResp) {
+func runTest(test_name string, time *timestamppb.Timestamp, ch chan<- testResp) {
 	conn, err := grpc.Dial("localhost:1338")
 	if err != nil {
 		log.Fatalf("connection to runner failed: %v", err)
@@ -94,7 +94,7 @@ func runTest(test_name string, ch chan<- testResp) {
 	req := pb_runner.RunTestRequest{
 		DataId: 1,
 		Test:   test_name,
-		Time:   timestamppb.Now(), // TODO replace with actual timestamp
+		Time:   time,
 	}
 
 	resp, err := client.RunTest(context.Background(), &req)
@@ -118,7 +118,7 @@ func (s *server) ValidateOne(in *pb_coordinator.ValidateOneRequest, srv pb_coord
 	ch := make(chan testResp)
 
 	for leaf_index := range subdag.Leaves {
-		go runTest(subdag.Nodes[leaf_index].Contents, ch)
+		go runTest(subdag.Nodes[leaf_index].Contents, in.Time, ch)
 	}
 
 	for completed_test := range ch {
@@ -144,7 +144,7 @@ func (s *server) ValidateOne(in *pb_coordinator.ValidateOneRequest, srv pb_coord
 			children_completed_map[parent_index] = children_completed
 
 			if children_completed >= len(subdag.Nodes[parent_index].Children) {
-				go runTest(subdag.Nodes[parent_index].Contents, ch)
+				go runTest(subdag.Nodes[parent_index].Contents, in.Time, ch)
 			}
 		}
 
