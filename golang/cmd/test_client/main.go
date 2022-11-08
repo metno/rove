@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	pb "github.com/metno/rove/proto"
+	pb "github.com/metno/rove/proto/coordinator"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
@@ -17,7 +18,7 @@ func main() {
 
 	client := pb.NewCoordinatorClient(conn)
 
-	in := pb.ValidateOneRequest{DataId: 1, Tests: []string{"test1"}}
+	in := pb.ValidateOneRequest{DataId: 1, Tests: []string{"test1"}, Time: timestamppb.Now()}
 	stream, err := client.ValidateOne(context.Background(), &in)
 	if err != nil {
 		panic(fmt.Sprintf("open stream error %v", err))
