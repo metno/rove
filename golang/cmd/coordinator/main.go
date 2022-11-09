@@ -99,6 +99,9 @@ func runTest(test_name string, time *timestamppb.Timestamp, ch chan<- testResp) 
 	}
 
 	resp, err := client.RunTest(context.Background(), &req)
+	if err != nil {
+		log.Fatalf("run test request failed: %v", err)
+	}
 
 	ch <- testResp{name: test_name, resp: resp}
 }
