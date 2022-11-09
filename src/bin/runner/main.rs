@@ -13,11 +13,12 @@ pub struct MyRunner {}
 
 #[tonic::async_trait]
 impl Runner for MyRunner {
+    #[tracing::instrument]
     async fn run_test(
         &self,
         request: Request<RunTestRequest>,
     ) -> Result<Response<RunTestResponse>, Status> {
-        println!("Got a request: {:?}", request);
+        tracing::info!("Got a request: {:?}", request);
 
         let req = request.into_inner();
 
@@ -36,16 +37,25 @@ impl Runner for MyRunner {
 
         let response = RunTestResponse { flag, flag_id: 0 };
 
+        tracing::debug!("sending response");
+
         Ok(Response::new(response))
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
     let addr = "[::1]:50051".parse()?;
     let runner = MyRunner::default();
 
+    tracing::info!(message = "Starting server.", %addr);
+
     Server::builder()
+        .trace_fn(|_| tracing::info_span!("helloworld_server"))
         .add_service(RunnerServer::new(runner))
         .serve(addr)
         .await?;

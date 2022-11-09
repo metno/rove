@@ -14,6 +14,9 @@ tokio = { version = "1.18.2", features = ["full"] }
 prost = "0.10.4"
 prost-types = "0.10"
 titanlib-rs = { git = "https://github.com/intarga/titanlib-rs" }
+tracing = "0.1.16"
+tracing-futures = "0.2"
+tracing-subscriber = { version = "0.3", features = ["tracing-log"] }
 
 [build-dependencies]
 tonic-build = "0.7.2"
