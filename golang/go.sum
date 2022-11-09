@@ -46,6 +46,8 @@ github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/intarga/dagrid v0.0.0-20220711171430-7e41b684f657 h1:yMKThAIWmc+39yQRxmlIYLcNrJhUaU+uUA5lGpWq9TQ=
 github.com/intarga/dagrid v0.0.0-20220711171430-7e41b684f657/go.mod h1:tHN2tV+I1iYOYL1DtbJxK2KV86KAHImLycQkv3Lq1Kg=
+github.com/intarga/dagrid v0.1.0 h1:XF+6RDhk1YBrq/7p1zS2JBTbCj7RrHikwAvZtkJm1/4=
+github.com/intarga/dagrid v0.1.0/go.mod h1:tHN2tV+I1iYOYL1DtbJxK2KV86KAHImLycQkv3Lq1Kg=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
