@@ -85,7 +85,7 @@ func runTestPlaceholder(test_name string, ch chan<- string) {
 }
 
 func runTest(test_name string, time *timestamppb.Timestamp, ch chan<- testResp) {
-	conn, err := grpc.Dial("localhost:1338")
+	conn, err := grpc.Dial("[::1]:1338", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("connection to runner failed: %v", err)
 	}
