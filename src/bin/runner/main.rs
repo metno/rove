@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let addr = "[::1]:50051".parse()?;
+    let addr = "[::1]:1338".parse()?;
     let runner = MyRunner::default();
 
     tracing::info!(message = "Starting server.", %addr);
