@@ -89,6 +89,7 @@ func runTest(test_name string, time *timestamppb.Timestamp, ch chan<- testResp) 
 	if err != nil {
 		log.Fatalf("connection to runner failed: %v", err)
 	}
+	defer conn.Close()
 	client := pb_runner.NewRunnerClient(conn)
 
 	req := pb_runner.RunTestRequest{
