@@ -16,8 +16,9 @@ import (
 )
 
 type testResp struct {
-	name string
-	resp *pb_runner.RunTestResponse
+	name   string
+	flag   uint32
+	flagId uint32
 }
 
 func constructDag() dagrid.Dag {
@@ -103,7 +104,7 @@ func runTest(test_name string, time *timestamppb.Timestamp, ch chan<- testResp) 
 		log.Fatalf("run test request failed: %v", err)
 	}
 
-	ch <- testResp{name: test_name, resp: resp}
+	ch <- testResp{name: test_name, flag: resp.Flag, flagId: resp.FlagId}
 }
 
 type server struct {
@@ -129,7 +130,7 @@ func (s *server) ValidateOne(in *pb_coordinator.ValidateOneRequest, srv pb_coord
 		nodes_left--
 
 		// TODO: send real data back to the client
-		srv.Send(&pb_coordinator.ValidateResponse{DataId: in.DataId, FlagId: uint32(s.dag.IndexLookup[completed_test.name]), Flag: completed_test.resp.Flag}) // FIXME: is this FlagId correct? or should we use the one from the resp?
+		srv.Send(&pb_coordinator.ValidateResponse{DataId: in.DataId, FlagId: uint32(s.dag.IndexLookup[completed_test.name]), Flag: completed_test.flag}) // FIXME: is this FlagId correct? or should we use the one from the resp?
 
 		if nodes_left == 0 {
 			return nil
