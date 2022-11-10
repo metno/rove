@@ -18,7 +18,7 @@ func main() {
 
 	client := pb.NewCoordinatorClient(conn)
 
-	in := pb.ValidateOneRequest{DataId: 1, Tests: []string{"test1"}, Time: timestamppb.Now()}
+	in := pb.ValidateOneRequest{DataId: 1, Tests: []string{"dip_check"}, Time: timestamppb.Now()}
 	stream, err := client.ValidateOne(context.Background(), &in)
 	if err != nil {
 		panic(fmt.Sprintf("open stream error %v", err))

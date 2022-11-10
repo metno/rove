@@ -21,7 +21,7 @@ type testResp struct {
 	flagId uint32
 }
 
-func constructDag() dagrid.Dag {
+func constructDagPlaceholder() dagrid.Dag {
 	dag := dagrid.New_dag()
 
 	test1 := dag.Insert_free_node("test1")
@@ -34,6 +34,14 @@ func constructDag() dagrid.Dag {
 
 	test6 := dag.Insert_child(test4, "test6")
 	dag.Add_edge(test5, test6)
+
+	return dag
+}
+
+func constructDag() dagrid.Dag {
+	dag := dagrid.New_dag()
+
+	dag.Insert_free_node("dip_check")
 
 	return dag
 }
