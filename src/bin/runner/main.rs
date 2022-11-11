@@ -29,7 +29,9 @@ impl Runner for MyRunner {
                     req.time
                         .ok_or(Status::invalid_argument("invalid timestamp"))?
                         .seconds,
-                );
+                )
+                .await
+                .map_err(|err| Status::not_found(format!("data not found by cache: {}", err)))?;
                 dip_check(data, 2., 3.) as u32 //TODO use actual test params
             }
             _ => return Err(Status::invalid_argument("invalid test name")),
