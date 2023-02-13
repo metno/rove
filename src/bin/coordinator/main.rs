@@ -1,5 +1,6 @@
 use coordinator::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator::{ValidateOneRequest, ValidateResponse};
+use dagmar::Dag;
 use futures::Stream;
 use std::{pin::Pin, time::Duration};
 use tokio::sync::mpsc;
@@ -13,7 +14,9 @@ pub mod coordinator {
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
 #[derive(Debug, Default)]
-pub struct MyCoordinator {}
+pub struct MyCoordinator {
+    dag: Dag<String>,
+}
 
 #[tonic::async_trait]
 impl Coordinator for MyCoordinator {
