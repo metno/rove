@@ -13,9 +13,15 @@ pub mod coordinator {
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MyCoordinator {
     dag: Dag<String>,
+}
+
+impl MyCoordinator {
+    fn new(dag: Dag<String>) -> Self {
+        MyCoordinator { dag }
+    }
 }
 
 #[tonic::async_trait]
@@ -78,6 +84,22 @@ impl Coordinator for MyCoordinator {
     }
 }
 
+fn construct_dag_placeholder() -> Dag<String> {
+    let mut dag: Dag<String> = Dag::new();
+
+    let test6 = dag.add_node(String::from("test6"));
+
+    let test4 = dag.add_node_with_children(String::from("test4"), vec![test6]);
+    let test5 = dag.add_node_with_children(String::from("test5"), vec![test6]);
+
+    let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
+    let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
+
+    let _test1 = dag.add_node_with_children(String::from("testl"), vec![test2, test3]);
+
+    dag
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -85,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let addr = "[::1]:1337".parse()?;
-    let coordinator = MyCoordinator::default();
+    let coordinator = MyCoordinator::new(construct_dag_placeholder());
 
     tracing::info!(message = "Starting server.", %addr);
 
