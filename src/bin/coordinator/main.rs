@@ -1,8 +1,8 @@
 use coordinator::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator::{ValidateOneRequest, ValidateResponse};
-use dagmar::Dag;
+use dagmar::{Dag, NodeId};
 use futures::Stream;
-use std::{pin::Pin, time::Duration};
+use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, time::Duration};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{transport::Server, Request, Response, Status};
@@ -10,6 +10,19 @@ use tonic::{transport::Server, Request, Response, Status};
 pub mod coordinator {
     tonic::include_proto!("coordinator");
 }
+
+#[derive(Debug)]
+enum CoordinatorError {
+    InvalidLookup,
+}
+
+impl Display for CoordinatorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "requested test not found in dag")
+    }
+}
+
+impl Error for CoordinatorError {}
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
@@ -21,6 +34,56 @@ pub struct MyCoordinator {
 impl MyCoordinator {
     fn new(dag: Dag<String>) -> Self {
         MyCoordinator { dag }
+    }
+
+    // TODO: write a test for this
+    fn construct_subdag(
+        &self,
+        required_nodes: Vec<String>,
+    ) -> Result<Dag<String>, CoordinatorError> {
+        fn add_descendants(
+            dag: &Dag<String>,
+            subdag: &mut Dag<String>,
+            curr_index: NodeId,
+            nodes_visited: &mut HashMap<NodeId, NodeId>,
+        ) {
+            for child_index in dag.nodes.get(curr_index).unwrap().children.iter() {
+                if let Some(new_index) = nodes_visited.get(child_index) {
+                    subdag.add_edge(*nodes_visited.get(&curr_index).unwrap(), *new_index);
+                } else {
+                    let new_index =
+                        subdag.add_node(dag.nodes.get(*child_index).unwrap().elem.clone());
+
+                    nodes_visited.insert(*child_index, new_index);
+
+                    add_descendants(dag, subdag, *child_index, nodes_visited);
+                }
+            }
+        }
+
+        let mut subdag = Dag::new();
+
+        // this maps NodeIds from the dag to NodeIds from the subdag
+        let mut nodes_visited: HashMap<NodeId, NodeId> = HashMap::new();
+
+        for required in required_nodes.into_iter() {
+            let index = self
+                .dag
+                .index_lookup
+                .get(&required)
+                .ok_or(CoordinatorError::InvalidLookup)?;
+
+            if !nodes_visited.contains_key(index) {
+                let subdag_index =
+                    subdag.add_node(self.dag.nodes.get(*index).unwrap().elem.clone());
+
+                nodes_visited.insert(*index, subdag_index);
+
+                add_descendants(&self.dag, &mut subdag, *index, &mut nodes_visited);
+            }
+        }
+
+        Ok(subdag)
     }
 }
 
@@ -36,6 +99,8 @@ impl Coordinator for MyCoordinator {
         tracing::info!("Got a request: {:?}", request);
 
         let req = request.into_inner();
+
+        let _subdag = self.construct_subdag(req.tests);
 
         let mut stream = Box::pin(
             tokio_stream::iter(vec![
