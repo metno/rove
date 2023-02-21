@@ -2,6 +2,8 @@ use coordinator::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
 use futures::Stream;
+use prost_types::Timestamp;
+use runner::{runner_client::RunnerClient, RunTestRequest, RunTestResponse};
 use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, time::Duration};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
@@ -9,6 +11,10 @@ use tonic::{transport::Server, Request, Response, Status};
 
 pub mod coordinator {
     tonic::include_proto!("coordinator");
+}
+
+pub mod runner {
+    tonic::include_proto!("runner");
 }
 
 #[derive(Debug)]
@@ -25,6 +31,25 @@ impl Display for CoordinatorError {
 impl Error for CoordinatorError {}
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
+
+async fn run_test(
+    test_name: String,
+    time: Timestamp,
+) -> Result<(String, RunTestResponse), Box<dyn Error>> {
+    let mut client = RunnerClient::connect("[::1]:1338").await?;
+
+    Ok((
+        test_name.clone(),
+        client
+            .run_test(tonic::Request::new(RunTestRequest {
+                data_id: 1, // TODO: use an actual data_id
+                time: Some(time),
+                test: test_name,
+            }))
+            .await?
+            .into_inner(),
+    ))
+}
 
 #[derive(Debug)]
 pub struct MyCoordinator {
