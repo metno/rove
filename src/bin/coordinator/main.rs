@@ -20,11 +20,17 @@ pub mod runner {
 #[derive(Debug)]
 enum CoordinatorError {
     InvalidLookup,
+    RunnerConnectionFail,
+    RunTestFail,
 }
 
 impl Display for CoordinatorError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "requested test not found in dag")
+        match self {
+            Self::InvalidLookup => write!(f, "requested test not found in dag"),
+            Self::RunnerConnectionFail => write!(f, "failed to connect to runner"),
+            Self::RunTestFail => write!(f, "RunTest request failed"),
+        }
     }
 }
 
@@ -32,11 +38,14 @@ impl Error for CoordinatorError {}
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
+// TODO: keep internal error when mapping errors?
 async fn run_test(
     test_name: String,
     time: Timestamp,
-) -> Result<(String, RunTestResponse), Box<dyn Error>> {
-    let mut client = RunnerClient::connect("[::1]:1338").await?;
+) -> Result<(String, RunTestResponse), CoordinatorError> {
+    let mut client = RunnerClient::connect("[::1]:1338")
+        .await
+        .map_err(|_err| CoordinatorError::RunnerConnectionFail)?;
 
     Ok((
         test_name.clone(),
@@ -46,7 +55,8 @@ async fn run_test(
                 time: Some(time),
                 test: test_name,
             }))
-            .await?
+            .await
+            .map_err(|_err| CoordinatorError::RunTestFail)?
             .into_inner(),
     ))
 }
