@@ -1,10 +1,10 @@
 use coordinator::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
-use futures::Stream;
+use futures::{stream::FuturesUnordered, Stream};
 use prost_types::Timestamp;
 use runner::{runner_client::RunnerClient, RunTestRequest, RunTestResponse};
-use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, time::Duration};
+use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{transport::Server, Request, Response, Status};
@@ -135,36 +135,32 @@ impl Coordinator for MyCoordinator {
 
         let req = request.into_inner();
 
-        let _subdag = self.construct_subdag(req.tests);
-
-        let mut stream = Box::pin(
-            tokio_stream::iter(vec![
-                ValidateResponse {
-                    data_id: req.data_id,
-                    flag_id: 1,
-                    flag: 0,
-                },
-                ValidateResponse {
-                    data_id: req.data_id,
-                    flag_id: 2,
-                    flag: 0,
-                },
-                ValidateResponse {
-                    data_id: req.data_id,
-                    flag_id: 3,
-                    flag: 1,
-                },
-            ])
-            .throttle(Duration::from_millis(200)),
-        );
+        // TODO: remove this unwrap
+        let subdag = self.construct_subdag(req.tests).unwrap();
 
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = mpsc::channel(128);
         tokio::spawn(async move {
-            while let Some(item) = stream.next().await {
-                match tx.send(Ok(item)).await {
-                    // match tx.send(Result::<_, Status>::Ok(item)).await {
+            let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
+            let mut test_futures = FuturesUnordered::new();
+
+            for leaf_index in subdag.leaves.clone().into_iter() {
+                test_futures.push(run_test(
+                    subdag.nodes.get(leaf_index).unwrap().elem.clone(),
+                    req.time.as_ref().unwrap().clone(),
+                ));
+            }
+
+            while let Some(res) = test_futures.next().await {
+                // TODO: remove this unwrap
+                let unwrapped = res.unwrap();
+                let validate_response = ValidateResponse {
+                    data_id: req.data_id,
+                    flag_id: unwrapped.1.flag_id,
+                    flag: unwrapped.1.flag,
+                };
+                match tx.send(Ok(validate_response)).await {
                     Ok(_) => {
                         // item (server response) was queued to be send to client
                     }
@@ -173,7 +169,27 @@ impl Coordinator for MyCoordinator {
                         break;
                     }
                 }
+
+                let completed_index = subdag.index_lookup.get(&unwrapped.0).unwrap();
+
+                for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
+                    let children_completed = children_completed_map
+                        .get(parent_index)
+                        .map(|x| x + 1)
+                        .unwrap_or(1);
+
+                    children_completed_map.insert(*completed_index, children_completed);
+
+                    if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
+                    {
+                        test_futures.push(run_test(
+                            subdag.nodes.get(*parent_index).unwrap().elem.clone(),
+                            req.time.as_ref().unwrap().clone(),
+                        ))
+                    }
+                }
             }
+
             println!("\tclient disconnected");
         });
 
