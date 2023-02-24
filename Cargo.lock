@@ -182,6 +182,7 @@ checksum = "6548a0ad5d2549e111e1f6a11a6c2e2d00ce6a3dafe22948d67c2b443f775e52"
 [[package]]
 name = "dagmar"
 version = "0.1.0"
+source = "git+https://github.com/intarga/dagmar#ca854a44e71baea918386d39e3d037153a8389bc"
 
 [[package]]
 name = "either"
