@@ -27,7 +27,7 @@ impl Runner for MyRunner {
                 let data = cache::get_timeseries_data(
                     req.data_id,
                     req.time
-                        .ok_or(Status::invalid_argument("invalid timestamp"))?
+                        .ok_or_else(|| Status::invalid_argument("invalid timestamp"))?
                         .seconds,
                 )
                 .await
