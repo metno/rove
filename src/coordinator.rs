@@ -7,7 +7,10 @@ use runner_pb::{runner_client::RunnerClient, RunTestRequest, RunTestResponse};
 use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{
+    transport::{Endpoint, Server},
+    Request, Response, Status,
+};
 
 mod coordinator_pb {
     tonic::include_proto!("coordinator");
@@ -40,10 +43,11 @@ type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>
 
 // TODO: keep internal error when mapping errors?
 async fn run_test(
+    endpoint: Endpoint,
     test_name: String,
     time: Timestamp,
 ) -> Result<(String, RunTestResponse), CoordinatorError> {
-    let mut client = RunnerClient::connect("[::1]:1338")
+    let mut client = RunnerClient::connect(endpoint)
         .await
         .map_err(|_err| CoordinatorError::RunnerConnectionFail)?;
 
@@ -64,11 +68,15 @@ async fn run_test(
 #[derive(Debug)]
 struct MyCoordinator {
     dag: Dag<String>,
+    runner_endpoint: Endpoint,
 }
 
 impl MyCoordinator {
-    fn new(dag: Dag<String>) -> Self {
-        MyCoordinator { dag }
+    fn new(dag: Dag<String>, runner_endpoint: Endpoint) -> Self {
+        MyCoordinator {
+            dag,
+            runner_endpoint,
+        }
     }
 
     // TODO: write a test for this
@@ -138,6 +146,8 @@ impl Coordinator for MyCoordinator {
         // TODO: remove this unwrap
         let subdag = self.construct_subdag(req.tests).unwrap();
 
+        let endpoint = self.runner_endpoint.clone();
+
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = mpsc::channel(128);
@@ -147,6 +157,7 @@ impl Coordinator for MyCoordinator {
 
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(run_test(
+                    endpoint.clone(),
                     subdag.nodes.get(leaf_index).unwrap().elem.clone(),
                     req.time.as_ref().unwrap().clone(),
                 ));
@@ -183,6 +194,7 @@ impl Coordinator for MyCoordinator {
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
                         test_futures.push(run_test(
+                            endpoint.clone(),
                             subdag.nodes.get(*parent_index).unwrap().elem.clone(),
                             req.time.as_ref().unwrap().clone(),
                         ))
@@ -222,7 +234,10 @@ pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let addr = "[::1]:1337".parse()?;
-    let coordinator = MyCoordinator::new(construct_dag_placeholder());
+    let coordinator = MyCoordinator::new(
+        construct_dag_placeholder(),
+        Endpoint::try_from("[::1]:1338")?,
+    );
 
     tracing::info!(message = "Starting server.", %addr);
 
