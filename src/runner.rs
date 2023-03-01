@@ -1,4 +1,4 @@
-use crate::cache;
+use crate::{cache, util::ListenerType};
 use runner_pb::runner_server::{Runner, RunnerServer};
 use runner_pb::{RunTestRequest, RunTestResponse};
 use titanlib_rs::qc_tests::dip_check;
@@ -45,21 +45,25 @@ impl Runner for MyRunner {
     }
 }
 
-pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let addr = "[::1]:1338".parse()?;
-    let runner = MyRunner::default();
+    match listener {
+        ListenerType::Addr(addr) => {
+            let runner = MyRunner::default();
 
-    tracing::info!(message = "Starting server.", %addr);
+            tracing::info!(message = "Starting server.", %addr);
 
-    Server::builder()
-        .trace_fn(|_| tracing::info_span!("helloworld_server"))
-        .add_service(RunnerServer::new(runner))
-        .serve(addr)
-        .await?;
+            Server::builder()
+                .trace_fn(|_| tracing::info_span!("helloworld_server"))
+                .add_service(RunnerServer::new(runner))
+                .serve(addr)
+                .await?;
+        }
+        ListenerType::UnixListener => unimplemented!(),
+    }
 
     Ok(())
 }

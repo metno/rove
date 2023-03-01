@@ -1,3 +1,4 @@
+use crate::util::ListenerType;
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator_pb::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
@@ -228,24 +229,28 @@ fn construct_dag_placeholder() -> Dag<String> {
     dag
 }
 
-pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let addr = "[::1]:1337".parse()?;
-    let coordinator = MyCoordinator::new(
-        construct_dag_placeholder(),
-        Endpoint::try_from("[::1]:1338")?,
-    );
+    match listener {
+        ListenerType::Addr(addr) => {
+            let coordinator = MyCoordinator::new(
+                construct_dag_placeholder(),
+                Endpoint::try_from("[::1]:1338")?,
+            );
 
-    tracing::info!(message = "Starting server.", %addr);
+            tracing::info!(message = "Starting server.", %addr);
 
-    Server::builder()
-        .trace_fn(|_| tracing::info_span!("helloworld_server"))
-        .add_service(CoordinatorServer::new(coordinator))
-        .serve(addr)
-        .await?;
+            Server::builder()
+                .trace_fn(|_| tracing::info_span!("helloworld_server"))
+                .add_service(CoordinatorServer::new(coordinator))
+                .serve(addr)
+                .await?;
+        }
+        ListenerType::UnixListener => unimplemented!(),
+    }
 
     Ok(())
 }
