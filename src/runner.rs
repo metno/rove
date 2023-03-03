@@ -68,7 +68,14 @@ pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::err
                 .serve(addr)
                 .await?;
         }
-        ListenerType::UnixListener => unimplemented!(),
+        ListenerType::UnixListener(stream) => {
+            let runner = MyRunner::default();
+
+            Server::builder()
+                .add_service(RunnerServer::new(runner))
+                .serve_with_incoming(stream)
+                .await?;
+        }
     }
 
     Ok(())

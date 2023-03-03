@@ -5,13 +5,15 @@ use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
 use prost_types::Timestamp;
 use runner_pb::{runner_client::RunnerClient, RunTestRequest, RunTestResponse};
-use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin};
-use tokio::sync::mpsc;
+use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, sync::Arc};
+use tempfile::TempPath;
+use tokio::{net::UnixStream, sync::mpsc};
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{
     transport::{Endpoint, Server},
     Request, Response, Status,
 };
+use tower::service_fn;
 
 mod coordinator_pb {
     tonic::include_proto!("coordinator");
@@ -42,15 +44,34 @@ impl Error for CoordinatorError {}
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
+#[derive(Debug, Clone)]
+pub enum EndpointType {
+    Uri(Endpoint),
+    Socket(Arc<TempPath>),
+}
+
 // TODO: keep internal error when mapping errors?
 async fn run_test(
-    endpoint: Endpoint,
+    endpoint: EndpointType,
     test_name: String,
     time: Timestamp,
 ) -> Result<(String, RunTestResponse), CoordinatorError> {
-    let mut client = RunnerClient::connect(endpoint)
-        .await
-        .map_err(|_err| CoordinatorError::RunnerConnectionFail)?;
+    let mut client = match endpoint {
+        EndpointType::Uri(endpt) => RunnerClient::connect(endpt)
+            .await
+            .map_err(|_err| CoordinatorError::RunnerConnectionFail)?,
+        EndpointType::Socket(socket) => {
+            let channel = Endpoint::try_from("http://any.url")
+                .unwrap()
+                .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
+                    let socket = Arc::clone(&socket);
+                    async move { UnixStream::connect(&*socket).await }
+                }))
+                .await
+                .unwrap();
+            RunnerClient::new(channel)
+        }
+    };
 
     Ok((
         test_name.clone(),
@@ -69,11 +90,11 @@ async fn run_test(
 #[derive(Debug)]
 struct MyCoordinator {
     dag: Dag<String>,
-    runner_endpoint: Endpoint,
+    runner_endpoint: EndpointType,
 }
 
 impl MyCoordinator {
-    fn new(dag: Dag<String>, runner_endpoint: Endpoint) -> Self {
+    fn new(dag: Dag<String>, runner_endpoint: EndpointType) -> Self {
         MyCoordinator {
             dag,
             runner_endpoint,
@@ -231,7 +252,7 @@ fn construct_dag_placeholder() -> Dag<String> {
 
 pub async fn start_server(
     listener: ListenerType,
-    runner_endpoint: Endpoint,
+    runner_endpoint: EndpointType,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
@@ -249,7 +270,14 @@ pub async fn start_server(
                 .serve(addr)
                 .await?;
         }
-        ListenerType::UnixListener => unimplemented!(),
+        ListenerType::UnixListener(stream) => {
+            let coordinator = MyCoordinator::new(construct_dag_placeholder(), runner_endpoint);
+
+            Server::builder()
+                .add_service(CoordinatorServer::new(coordinator))
+                .serve_with_incoming(stream)
+                .await?;
+        }
     }
 
     Ok(())
