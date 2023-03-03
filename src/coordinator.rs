@@ -224,7 +224,7 @@ fn construct_dag_placeholder() -> Dag<String> {
     let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
     let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
 
-    let _test1 = dag.add_node_with_children(String::from("testl"), vec![test2, test3]);
+    let _test1 = dag.add_node_with_children(String::from("test1"), vec![test2, test3]);
 
     dag
 }
