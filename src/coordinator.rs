@@ -80,7 +80,6 @@ impl MyCoordinator {
         }
     }
 
-    // TODO: write a test for this
     fn construct_subdag(
         &self,
         required_nodes: Vec<String>,
@@ -254,4 +253,25 @@ pub async fn start_server(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_construct_subdag() {
+        let coordinator = MyCoordinator::new(
+            construct_dag_placeholder(),
+            EndpointType::Uri(Endpoint::try_from("http://any.url").unwrap()),
+        );
+
+        assert_eq!(coordinator.dag.count_edges(), 6);
+
+        let subdag = coordinator
+            .construct_subdag(vec![String::from("test4")])
+            .unwrap();
+
+        assert_eq!(subdag.count_edges(), 1);
+    }
 }
