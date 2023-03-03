@@ -211,7 +211,7 @@ impl Coordinator for MyCoordinator {
                         .map(|x| x + 1)
                         .unwrap_or(1);
 
-                    children_completed_map.insert(*completed_index, children_completed);
+                    children_completed_map.insert(*parent_index, children_completed);
 
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
