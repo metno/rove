@@ -97,6 +97,7 @@ impl MyCoordinator {
                 } else {
                     let new_index =
                         subdag.add_node(dag.nodes.get(*child_index).unwrap().elem.clone());
+                    subdag.add_edge(*nodes_visited.get(&curr_index).unwrap(), new_index);
 
                     nodes_visited.insert(*child_index, new_index);
 
