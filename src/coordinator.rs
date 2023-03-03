@@ -229,17 +229,17 @@ fn construct_dag_placeholder() -> Dag<String> {
     dag
 }
 
-pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
-
+pub async fn start_server(
+    listener: ListenerType,
+    runner_endpoint: Endpoint,
+) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
-            let coordinator = MyCoordinator::new(
-                construct_dag_placeholder(),
-                Endpoint::try_from("[::1]:1338")?,
-            );
+            tracing_subscriber::fmt()
+                .with_max_level(tracing::Level::DEBUG)
+                .init();
+
+            let coordinator = MyCoordinator::new(construct_dag_placeholder(), runner_endpoint);
 
             tracing::info!(message = "Starting server.", %addr);
 
