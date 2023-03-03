@@ -273,5 +273,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(subdag.count_edges(), 1);
+
+        let subdag = coordinator
+            .construct_subdag(vec![String::from("test1")])
+            .unwrap();
+
+        assert_eq!(subdag.count_edges(), 6);
     }
 }
