@@ -17,7 +17,7 @@ SystemDb_Ext(lustre, "Lustre", "File system")
 SystemDb_Ext(datasources, "Other data sources", "Other data sources needed for QC")
 
 System_Boundary(Confident, "QC system for observations") {
-  Container(controller, "Controller", "Golang", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
+  Container(controller, "Controller", "Rust", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
   Container_Boundary(runner, "Runner") {
     Component(test_harness, "Test harness", "Rust", "Calls the test code with appropriate input from the request and cache")
     ComponentDb(cache, "Cache", "Rust", "Stores data needed across multiple test runs in local memory")

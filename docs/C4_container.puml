@@ -17,8 +17,8 @@ SystemDb_Ext(lustre, "Lustre", "File system")
 SystemDb_Ext(datasources, "Other data sources", "Other data sources needed for QC")
 
 System_Boundary(Confident, "QC system for observations") {
-  Container(controller, "Controller", "Golang", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
-  Container(runner, "Runner", "Rust/C++", "The runner(s) contain the QC libraries and data cache, and can horizontally scale to run tests in parallel.")
+  Container(controller, "Controller", "Rust", "Controller for QC, knows the dependencies between QC tests and can schedule the dependencies as needed")
+  Container(runner, "Runner", "Rust", "The runner(s) contain the QC libraries and data cache, and can horizontally scale to run tests in parallel.")
 }
 
 Rel_U(new_obs_system, kafka, "opens stream, and receives notifications of arrival of new data", "sarama")
