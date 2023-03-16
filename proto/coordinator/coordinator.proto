@@ -8,16 +8,61 @@ package coordinator;
 
 service Coordinator {
   rpc ValidateOne (ValidateOneRequest) returns (stream ValidateResponse) {}
+  /* rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateResponse) {} */
+  /* rpc ValidateSlice (ValidateSliceRequest) returns (stream ValidateResponse) {} */
 }
 
+// test one piece of data
 message ValidateOneRequest {
-  uint32 data_id = 1;
+  // resource locator of the form <data source>:<source-specific identifier>
+  // e.g. oda:123456 where oda is a data source known to the system, and 123456
+  // is a timeseries ID in oda
+  string series_id = 1;
   google.protobuf.Timestamp time = 2;
+  // list of the names of tests to be run on the data
   repeated string tests = 3;
 }
 
+// tests a time series between start_time and end_time
+message ValidateSeriesRequest {
+  string series_id = 1;
+  // if not provided, the start of the time series will be used
+  optional google.protobuf.Timestamp start_time = 2;
+  // if not provided, the end of the time series will be used
+  optional google.protobuf.Timestamp end_time = 3;
+  repeated string tests = 4;
+}
+
+message GeoPoint {
+  float lat = 1;
+  float lon = 2;
+}
+
+// tests a time slice with optional list of data sources to use, and a list of
+// coordinates that define a polygon representing the area to be tested
+message ValidateSliceRequest {
+  // if not provided, all available sources will be used
+  repeated string data_sources = 1;
+  // if not provided, the whole globe will be used
+  repeated GeoPoint polygon = 2;
+  google.protobuf.Timestamp time = 3;
+  repeated string tests = 4;
+}
+
+enum Flag { // WIP
+  PASS = 0;
+  FAIL = 1;
+  WARN = 2;
+  INCONCLUSIVE = 3;
+  INVALID = 4;
+  DATA_MISSING = 5;
+}
+
 message ValidateResponse {
-  uint32 data_id = 1;
-  uint32 flag_id = 2;
-  uint32 flag = 3;
+  string series_id = 1;
+  google.protobuf.Timestamp time = 2;
+  // name of the test this flag is from
+  string test = 3;
+  // indicates the result of a test
+  Flag flag = 4;
 }
