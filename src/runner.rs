@@ -1,8 +1,26 @@
 use crate::{cache, util::ListenerType};
+use olympian::qc_tests::dip_check;
 use runner_pb::runner_server::{Runner, RunnerServer};
 use runner_pb::{RunTestRequest, RunTestResponse};
-use olympian::qc_tests::dip_check;
 use tonic::{transport::Server, Request, Response, Status};
+use util::Flag;
+
+mod util {
+    tonic::include_proto!("util");
+
+    impl From<olympian::qc_tests::Flag> for Flag {
+        fn from(item: olympian::qc_tests::Flag) -> Self {
+            match item {
+                olympian::qc_tests::Flag::Pass => Self::Pass,
+                olympian::qc_tests::Flag::Fail => Self::Fail,
+                olympian::qc_tests::Flag::Warn => Self::Warn,
+                olympian::qc_tests::Flag::Inconclusive => Self::Inconclusive,
+                olympian::qc_tests::Flag::Invalid => Self::Invalid,
+                olympian::qc_tests::Flag::DataMissing => Self::DataMissing,
+            }
+        }
+    }
+}
 
 mod runner_pb {
     tonic::include_proto!("runner");
@@ -22,7 +40,7 @@ impl Runner for MyRunner {
 
         let req = request.into_inner();
 
-        let flag: u32 = match req.test.as_str() {
+        let flag: Flag = match req.test.as_str() {
             "dip_check" => {
                 let data = cache::get_timeseries_data(
                     req.data_id,
@@ -32,18 +50,18 @@ impl Runner for MyRunner {
                 )
                 .await
                 .map_err(|err| Status::not_found(format!("data not found by cache: {}", err)))?;
-                dip_check(data, 2., 3.) as u32 //TODO use actual test params
+                dip_check(data, 2., 3.).into() //TODO use actual test params
             }
             _ => {
                 if req.test.starts_with("test") {
-                    1
+                    Flag::Inconclusive
                 } else {
                     return Err(Status::invalid_argument("invalid test name"));
                 }
             }
         };
 
-        let response = RunTestResponse { flag, flag_id: 0 };
+        let response = RunTestResponse { flag: flag.into() };
 
         tracing::debug!("sending response");
 
