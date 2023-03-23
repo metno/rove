@@ -1,8 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
-
-option go_package = "./proto";
+import "util.proto";
 
 package runner;
 
@@ -17,6 +16,5 @@ message RunTestRequest {
 }
 
 message RunTestResponse {
-  uint32 flag_id = 2;
-  uint32 flag = 3;
+  util.Flag flag = 1;
 }

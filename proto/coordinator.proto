@@ -1,8 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
-
-option go_package = "./proto";
+import "util.proto";
 
 package coordinator;
 
@@ -33,29 +32,15 @@ message ValidateSeriesRequest {
   repeated string tests = 4;
 }
 
-message GeoPoint {
-  float lat = 1;
-  float lon = 2;
-}
-
 // tests a time slice with optional list of data sources to use, and a list of
 // coordinates that define a polygon representing the area to be tested
 message ValidateSliceRequest {
   // if not provided, all available sources will be used
   repeated string data_sources = 1;
   // if not provided, the whole globe will be used
-  repeated GeoPoint polygon = 2;
+  repeated util.GeoPoint polygon = 2;
   google.protobuf.Timestamp time = 3;
   repeated string tests = 4;
-}
-
-enum Flag { // WIP
-  PASS = 0;
-  FAIL = 1;
-  WARN = 2;
-  INCONCLUSIVE = 3;
-  INVALID = 4;
-  DATA_MISSING = 5;
 }
 
 message ValidateResponse {
@@ -64,5 +49,5 @@ message ValidateResponse {
   // name of the test this flag is from
   string test = 3;
   // indicates the result of a test
-  Flag flag = 4;
+  util.Flag flag = 4;
 }
