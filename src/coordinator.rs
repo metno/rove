@@ -15,6 +15,10 @@ use tonic::{
 };
 use tower::service_fn;
 
+mod util {
+    tonic::include_proto!("util");
+}
+
 mod coordinator_pb {
     tonic::include_proto!("coordinator");
 }
@@ -189,8 +193,9 @@ impl Coordinator for MyCoordinator {
                 // TODO: remove this unwrap
                 let unwrapped = res.unwrap();
                 let validate_response = ValidateResponse {
-                    data_id: req.data_id,
-                    flag_id: unwrapped.1.flag_id,
+                    series_id: req.series_id.clone(),
+                    time: req.time.clone(),
+                    test: unwrapped.0.clone(),
                     flag: unwrapped.1.flag,
                 };
                 match tx.send(Ok(validate_response)).await {
