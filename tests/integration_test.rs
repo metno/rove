@@ -8,6 +8,10 @@ use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::Endpoint;
 use tower::service_fn;
 
+mod util {
+    tonic::include_proto!("util");
+}
+
 mod coordinator_pb {
     tonic::include_proto!("coordinator");
 }
@@ -52,7 +56,7 @@ async fn integration_test() {
     let request_future = async {
         let mut stream = client
             .validate_one(ValidateOneRequest {
-                data_id: 1,
+                series_id: String::from("test:1"),
                 tests: vec![String::from("test1")],
                 time: Some(Timestamp::default()),
             })
@@ -62,7 +66,7 @@ async fn integration_test() {
 
         let mut recv_count = 0;
         while let Some(recv) = stream.next().await {
-            assert_eq!(recv.unwrap().flag, 1);
+            assert_eq!(recv.unwrap().flag, util::Flag::Inconclusive as i32);
             recv_count += 1;
         }
         assert_eq!(recv_count, 6);
