@@ -18,7 +18,7 @@ prost = "0.10.4"
 prost-types = "0.10"
 # dagmar = { path = "../dagmar" }
 dagmar = { git = "https://github.com/intarga/dagmar" }
-titanlib-rs = { git = "https://github.com/intarga/titanlib-rs" }
+olympian = { git = "https://github.com/intarga/olympian" }
 tracing = "0.1.16"
 tracing-futures = "0.2"
 tracing-subscriber = { version = "0.3", features = ["tracing-log"] }

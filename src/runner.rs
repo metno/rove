@@ -1,7 +1,7 @@
 use crate::{cache, util::ListenerType};
 use runner_pb::runner_server::{Runner, RunnerServer};
 use runner_pb::{RunTestRequest, RunTestResponse};
-use titanlib_rs::qc_tests::dip_check;
+use olympian::qc_tests::dip_check;
 use tonic::{transport::Server, Request, Response, Status};
 
 mod runner_pb {

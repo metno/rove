@@ -1,5 +1,5 @@
+use olympian::points::Points;
 use std::collections::HashMap;
-use titanlib_rs::points::Points;
 
 pub async fn get_timeseries_data(
     _station_id: u32,
