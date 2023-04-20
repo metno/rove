@@ -228,8 +228,6 @@ impl Coordinator for MyCoordinator {
                     }
                 }
             }
-
-            println!("\tclient disconnected");
         });
 
         let output_stream = ReceiverStream::new(rx);
