@@ -1,6 +1,10 @@
+use chrono::Local;
 use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateOneRequest};
 use prost_types::Timestamp;
-use rove::{coordinator, runner, util::ListenerType};
+use rove::{
+    coordinator, runner,
+    util::{flag_int_to_string, ListenerType},
+};
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 use tokio::net::{UnixListener, UnixStream};
@@ -58,6 +62,12 @@ async fn integration_test() {
     let mut client = CoordinatorClient::new(coordinator_channel);
 
     let request_future = async {
+        println!(
+            "{} \x1b[1;34mTEST_USER\x1b[0m: Sending ValidateOneRequest for tests {:?}",
+            Local::now(),
+            vec![String::from("test1")]
+        );
+
         let mut stream = client
             .validate_one(ValidateOneRequest {
                 series_id: String::from("test:1"),
@@ -70,7 +80,14 @@ async fn integration_test() {
 
         let mut recv_count = 0;
         while let Some(recv) = stream.next().await {
-            assert_eq!(recv.unwrap().flag, util::Flag::Inconclusive as i32);
+            let recv_unwrapped = recv.unwrap();
+            println!(
+                "{} \x1b[1;34mTEST_USER\x1b[0m: Received stream response, test: \"{}\", flag: \"{}\"",
+                Local::now(),
+                recv_unwrapped.test,
+                flag_int_to_string(recv_unwrapped.flag)
+            );
+            assert_eq!(recv_unwrapped.flag, util::Flag::Inconclusive as i32);
             recv_count += 1;
         }
         assert_eq!(recv_count, 6);

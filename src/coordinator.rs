@@ -1,4 +1,5 @@
-use crate::util::ListenerType;
+use crate::util::{flag_int_to_string, ListenerType};
+use chrono::Local;
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator_pb::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
@@ -60,6 +61,11 @@ async fn run_test(
     test_name: String,
     time: Timestamp,
 ) -> Result<(String, RunTestResponse), CoordinatorError> {
+    println!(
+        "{} \x1b[1;31mCOORDINATOR\x1b[0m: Sending test \"{}\" to runner",
+        Local::now(),
+        test_name
+    );
     let mut client = match endpoint {
         EndpointType::Uri(endpt) => RunnerClient::connect(endpt)
             .await
@@ -169,6 +175,18 @@ impl Coordinator for MyCoordinator {
 
         let req = request.into_inner();
 
+        println!(
+            "{} \x1b[1;31mCOORDINATOR\x1b[0m: Received ValidateOneRequest to run tests {:?} on data {}",
+            Local::now(),
+            req.tests,
+            req.series_id
+        );
+
+        println!(
+            "{} \x1b[1;31mCOORDINATOR\x1b[0m: Constructing subdag",
+            Local::now(),
+        );
+
         // TODO: remove this unwrap
         let subdag = self.construct_subdag(req.tests).unwrap();
 
@@ -181,7 +199,16 @@ impl Coordinator for MyCoordinator {
             let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
             let mut test_futures = FuturesUnordered::new();
 
+            println!(
+                "{} \x1b[1;31mCOORDINATOR\x1b[0m: Finding tests in subdag with no dependencies",
+                Local::now(),
+            );
             for leaf_index in subdag.leaves.clone().into_iter() {
+                println!(
+                            "{} \x1b[1;31mCOORDINATOR\x1b[0m: Found test \"{}\", with no dependencies, triggering a run",
+                            Local::now(),
+                            subdag.nodes[leaf_index].elem,
+                        );
                 test_futures.push(run_test(
                     endpoint.clone(),
                     subdag.nodes.get(leaf_index).unwrap().elem.clone(),
@@ -198,7 +225,15 @@ impl Coordinator for MyCoordinator {
                     test: unwrapped.0.clone(),
                     flag: unwrapped.1.flag,
                 };
-                match tx.send(Ok(validate_response)).await {
+
+                println!(
+                    "{} \x1b[1;31mCOORDINATOR\x1b[0m: Forwarding response from runner, test: {}, flag: {}",
+                    Local::now(),
+                    validate_response.test,
+                    flag_int_to_string(validate_response.flag)
+                );
+
+                match tx.send(Ok(validate_response.clone())).await {
                     Ok(_) => {
                         // item (server response) was queued to be send to client
                     }
@@ -210,6 +245,11 @@ impl Coordinator for MyCoordinator {
 
                 let completed_index = subdag.index_lookup.get(&unwrapped.0).unwrap();
 
+                println!(
+                    "{} \x1b[1;31mCOORDINATOR\x1b[0m: Checking dependents of test \"{}\"",
+                    Local::now(),
+                    validate_response.test,
+                );
                 for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
                     let children_completed = children_completed_map
                         .get(parent_index)
@@ -220,14 +260,32 @@ impl Coordinator for MyCoordinator {
 
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
+                        println!(
+                            "{} \x1b[1;31mCOORDINATOR\x1b[0m: Found dependent \"{}\" of test \"{}\", with no dependencies left, triggering a run",
+                            Local::now(),
+                            subdag.nodes[*parent_index].elem,
+                            validate_response.test,
+                        );
                         test_futures.push(run_test(
                             endpoint.clone(),
                             subdag.nodes.get(*parent_index).unwrap().elem.clone(),
                             req.time.as_ref().unwrap().clone(),
                         ))
+                    } else {
+                        println!(
+                            "{} \x1b[1;31mCOORDINATOR\x1b[0m: Found dependent \"{}\" of test \"{}\", with {} dependencies left, cant run yet",
+                            Local::now(),
+                            subdag.nodes[*parent_index].elem,
+                            validate_response.test,
+                            children_completed
+                        );
                     }
                 }
             }
+            println!(
+                "{} \x1b[1;31mCOORDINATOR\x1b[0m: All tests in subdag completed!",
+                Local::now(),
+            );
         });
 
         let output_stream = ReceiverStream::new(rx);
@@ -275,6 +333,11 @@ pub async fn start_server(
         }
         ListenerType::UnixListener(stream) => {
             let coordinator = MyCoordinator::new(construct_dag_placeholder(), runner_endpoint);
+
+            println!(
+                "{} \x1b[1;31mCOORDINATOR\x1b[0m: Starting server",
+                Local::now()
+            );
 
             Server::builder()
                 .add_service(CoordinatorServer::new(coordinator))

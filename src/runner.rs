@@ -1,4 +1,8 @@
-use crate::{cache, util::ListenerType};
+use crate::{
+    cache,
+    util::{flag_int_to_string, ListenerType},
+};
+use chrono::Local;
 use olympian::qc_tests::dip_check;
 use runner_pb::runner_server::{Runner, RunnerServer};
 use runner_pb::{RunTestRequest, RunTestResponse};
@@ -40,6 +44,12 @@ impl Runner for MyRunner {
 
         let req = request.into_inner();
 
+        println!(
+            "{} \x1b[1;32mRUNNER\x1b[0m: Received RunTestRequest, for test \"{}\"",
+            Local::now(),
+            req.test
+        );
+
         let flag: Flag = match req.test.as_str() {
             "dip_check" => {
                 let data = cache::get_timeseries_data(
@@ -65,6 +75,13 @@ impl Runner for MyRunner {
 
         tracing::debug!("sending response");
 
+        println!(
+            "{} \x1b[1;32mRUNNER\x1b[0m: Finished test \"{}\", with flag \"{}\", sending response to coordinator",
+            Local::now(),
+            req.test,
+            flag_int_to_string(response.flag)
+        );
+
         Ok(Response::new(response))
     }
 }
@@ -88,6 +105,8 @@ pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::err
         }
         ListenerType::UnixListener(stream) => {
             let runner = MyRunner::default();
+
+            println!("{} \x1b[1;32mRUNNER\x1b[0m: Starting server", Local::now(),);
 
             Server::builder()
                 .add_service(RunnerServer::new(runner))
