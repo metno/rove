@@ -18,6 +18,10 @@ mod coordinator_pb {
 
 #[tokio::test]
 async fn integration_test() {
+    // tracing_subscriber::fmt()
+    //     .with_max_level(tracing::Level::INFO)
+    //     .init();
+
     let runner_socket = NamedTempFile::new().unwrap();
     let runner_socket = Arc::new(runner_socket.into_temp_path());
     std::fs::remove_file(&*runner_socket).unwrap();

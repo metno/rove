@@ -70,12 +70,12 @@ impl Runner for MyRunner {
 }
 
 pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
-
     match listener {
         ListenerType::Addr(addr) => {
+            tracing_subscriber::fmt()
+                .with_max_level(tracing::Level::DEBUG)
+                .init();
+
             let runner = MyRunner::default();
 
             tracing::info!(message = "Starting server.", %addr);
