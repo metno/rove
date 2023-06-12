@@ -4,25 +4,25 @@ use serde::{de::Error, Deserialize, Deserializer};
 
 #[derive(Deserialize, Debug)]
 struct FrostObsBody {
-    // #[serde(deserialize_with = "des_value")]
-    value: String,
+    #[serde(deserialize_with = "des_value")]
+    value: f32,
 }
 
 #[derive(Deserialize, Debug)]
 struct FrostObs {
     body: FrostObsBody,
-    time: String,
+    _time: String,
 }
 
 fn des_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
 where
     D: Deserializer<'de>,
+    D::Error: serde::de::Error,
 {
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    // u64::from_str_radix(&s[2..], 16).map_err(D::Error::custom)
-    // deserializer.deserialize_str(s)
-    String::from(s).parse().map_err(D::Error::custom)
+    let s: String = Deserialize::deserialize(deserializer)?;
+    s.parse().map_err(D::Error::custom)
 }
+
 pub async fn get_timeseries_data(
     _station_id: u32,
     _unix_timestamp: i64,
@@ -36,7 +36,7 @@ pub async fn get_timeseries_data(
         "{:?}",
         obs.into_iter()
             .map(|obs| obs.body.value)
-            .collect::<Vec<String>>()
+            .collect::<Vec<f32>>()
     );
 
     Ok([1., 1., 1.]) // TODO get actual data
