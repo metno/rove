@@ -27,10 +27,20 @@ pub async fn get_timeseries_data(
     _station_id: u32,
     _unix_timestamp: i64,
 ) -> Result<[f32; 3], Box<dyn std::error::Error>> {
-    let resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
+    let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
 
-    let obs: Vec<FrostObs> =
-        serde_json::from_value(resp["data"]["tseries"][0]["observations"].to_owned()).unwrap();
+    let obs_portion = resp
+        .get_mut("data")
+        .unwrap()
+        .get_mut("tseries")
+        .unwrap()
+        .get_mut(0)
+        .unwrap()
+        .get_mut("observations")
+        .unwrap()
+        .take();
+
+    let obs: Vec<FrostObs> = serde_json::from_value(obs_portion)?;
 
     println!(
         "{:?}",
