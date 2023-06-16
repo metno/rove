@@ -57,6 +57,7 @@ pub enum EndpointType {
 // TODO: keep internal error when mapping errors?
 async fn run_test(
     endpoint: EndpointType,
+    series_id: String,
     test_name: String,
     time: Timestamp,
 ) -> Result<(String, RunTestResponse), CoordinatorError> {
@@ -81,7 +82,7 @@ async fn run_test(
         test_name.clone(),
         client
             .run_test(tonic::Request::new(RunTestRequest {
-                data_id: 1, // TODO: use an actual data_id
+                series_id,
                 time: Some(time),
                 test: test_name,
             }))
@@ -184,6 +185,7 @@ impl Coordinator for MyCoordinator {
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(run_test(
                     endpoint.clone(),
+                    req.series_id.clone(),
                     subdag.nodes.get(leaf_index).unwrap().elem.clone(),
                     req.time.as_ref().unwrap().clone(),
                 ));
@@ -222,6 +224,7 @@ impl Coordinator for MyCoordinator {
                     {
                         test_futures.push(run_test(
                             endpoint.clone(),
+                            req.series_id.clone(),
                             subdag.nodes.get(*parent_index).unwrap().elem.clone(),
                             req.time.as_ref().unwrap().clone(),
                         ))

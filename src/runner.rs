@@ -43,7 +43,7 @@ impl Runner for MyRunner {
         let flag: Flag = match req.test.as_str() {
             "dip_check" => {
                 let data = cache::get_timeseries_data(
-                    req.data_id,
+                    req.series_id,
                     req.time
                         .ok_or_else(|| Status::invalid_argument("invalid timestamp"))?
                         .seconds,

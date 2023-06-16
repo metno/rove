@@ -10,7 +10,7 @@ service Runner {
 }
 
 message RunTestRequest {
-  uint32 data_id = 1;
+  string series_id = 1;
   google.protobuf.Timestamp time = 2;
   string test = 3;
 }

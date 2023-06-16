@@ -24,7 +24,7 @@ where
 }
 
 pub async fn get_timeseries_data(
-    _station_id: u32,
+    _series_id: String,
     _unix_timestamp: i64,
 ) -> Result<[f32; 3], Box<dyn std::error::Error>> {
     let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
