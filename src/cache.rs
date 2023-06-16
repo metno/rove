@@ -7,6 +7,19 @@ use thiserror::Error;
 pub enum CacheError {
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
+    #[error("frost connector failed")]
+    Frost(#[from] FrostError),
+}
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum FrostError {
+    #[error("fetching data from frost failed")]
+    Request(#[from] reqwest::Error),
+    #[error("failed to find obs in json body: {0}")]
+    FindObs(String),
+    #[error("failed to deserialise obs to struct")]
+    DeserializeObs(#[from] serde_json::Error),
 }
 
 #[derive(Deserialize, Debug)]
@@ -38,7 +51,9 @@ pub async fn get_timeseries_data(
 
     // TODO: find a more flexible and elegant way of handling this
     match data_source {
-        "frost" => get_timeseries_data_frost(data_id, unix_timestamp).await,
+        "frost" => get_timeseries_data_frost(data_id, unix_timestamp)
+            .await
+            .map_err(CacheError::Frost),
         _ => Err(CacheError::InvalidDataSource(data_source.to_string())),
     }
 }
@@ -46,22 +61,27 @@ pub async fn get_timeseries_data(
 pub async fn get_timeseries_data_frost(
     _data_id: &str,
     _unix_timestamp: i64,
-) -> Result<[f32; 3], CacheError> {
-    // TODO: get rid of unwraps
-    let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await.unwrap().json().await.unwrap();
+) -> Result<[f32; 3], FrostError> {
+    let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
 
     let obs_portion = resp
         .get_mut("data")
-        .unwrap()
+        .ok_or(FrostError::FindObs(
+            "couldn't find data field on root".to_string(),
+        ))?
         .get_mut("tseries")
-        .unwrap()
+        .ok_or(FrostError::FindObs(
+            "couldn't find tseries field on data".to_string(),
+        ))?
         .get_mut(0)
-        .unwrap()
+        .ok_or(FrostError::FindObs("tseries array is empty".to_string()))?
         .get_mut("observations")
-        .unwrap()
+        .ok_or(FrostError::FindObs(
+            "couldn't observations data field on 1st tseries".to_string(),
+        ))?
         .take();
 
-    let obs: Vec<FrostObs> = serde_json::from_value(obs_portion).unwrap();
+    let obs: Vec<FrostObs> = serde_json::from_value(obs_portion)?;
 
     println!(
         "{:?}",
