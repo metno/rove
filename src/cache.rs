@@ -24,7 +24,21 @@ where
 }
 
 pub async fn get_timeseries_data(
-    _series_id: String,
+    series_id: String,
+    unix_timestamp: i64,
+) -> Result<[f32; 3], Box<dyn std::error::Error>> {
+    let (data_source, data_id) = series_id.split_once(':').unwrap();
+
+    // TODO: find a more flexible and elegant way of handling this
+    match data_source {
+        "frost" => get_timeseries_data_frost(data_id, unix_timestamp).await,
+        // FIXME: proper error handling
+        _ => panic!("unknown data source"),
+    }
+}
+
+pub async fn get_timeseries_data_frost(
+    _data_id: &str,
     _unix_timestamp: i64,
 ) -> Result<[f32; 3], Box<dyn std::error::Error>> {
     let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
