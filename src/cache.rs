@@ -1,6 +1,13 @@
 use olympian::points::Points;
-
 use serde::{de::Error, Deserialize, Deserializer};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum CacheError {
+    #[error("data source `{0}` not registered")]
+    InvalidDataSource(String),
+}
 
 #[derive(Deserialize, Debug)]
 struct FrostObsBody {
@@ -26,22 +33,22 @@ where
 pub async fn get_timeseries_data(
     series_id: String,
     unix_timestamp: i64,
-) -> Result<[f32; 3], Box<dyn std::error::Error>> {
+) -> Result<[f32; 3], CacheError> {
     let (data_source, data_id) = series_id.split_once(':').unwrap();
 
     // TODO: find a more flexible and elegant way of handling this
     match data_source {
         "frost" => get_timeseries_data_frost(data_id, unix_timestamp).await,
-        // FIXME: proper error handling
-        _ => panic!("unknown data source"),
+        _ => Err(CacheError::InvalidDataSource(data_source.to_string())),
     }
 }
 
 pub async fn get_timeseries_data_frost(
     _data_id: &str,
     _unix_timestamp: i64,
-) -> Result<[f32; 3], Box<dyn std::error::Error>> {
-    let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
+) -> Result<[f32; 3], CacheError> {
+    // TODO: get rid of unwraps
+    let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await.unwrap().json().await.unwrap();
 
     let obs_portion = resp
         .get_mut("data")
@@ -54,7 +61,7 @@ pub async fn get_timeseries_data_frost(
         .unwrap()
         .take();
 
-    let obs: Vec<FrostObs> = serde_json::from_value(obs_portion)?;
+    let obs: Vec<FrostObs> = serde_json::from_value(obs_portion).unwrap();
 
     println!(
         "{:?}",
