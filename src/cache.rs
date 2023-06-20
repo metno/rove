@@ -1,3 +1,4 @@
+use chrono::prelude::*;
 use olympian::points::Points;
 use serde::{de::Error, Deserialize, Deserializer};
 use thiserror::Error;
@@ -66,7 +67,7 @@ pub async fn get_timeseries_data(
 
 pub async fn get_timeseries_data_frost(
     data_id: &str,
-    _unix_timestamp: i64,
+    unix_timestamp: i64,
 ) -> Result<[f32; 3], FrostError> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
@@ -75,13 +76,18 @@ pub async fn get_timeseries_data_frost(
         .split_once('/')
         .ok_or(FrostError::InvalidDataId(data_id.to_string()))?;
 
+    let time = Utc.timestamp_opt(unix_timestamp, 0).unwrap();
+
     let mut resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
         .query(&[
             ("elementids", element_id),
             ("stationids", station_id),
             ("incobs", "true"),
-            ("time", "latest"),
+            (
+                "time",
+                time.to_rfc3339_opts(SecondsFormat::Secs, true).as_str(),
+            ),
         ])
         .send()
         .await?
