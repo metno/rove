@@ -16,6 +16,8 @@ pub enum CacheError {
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum FrostError {
+    #[error("data id `{0}` could not be parsed")]
+    InvalidDataId(String),
     #[error("fetching data from frost failed")]
     Request(#[from] reqwest::Error),
     #[error("failed to find obs in json body: {0}")]
@@ -63,17 +65,21 @@ pub async fn get_timeseries_data(
 }
 
 pub async fn get_timeseries_data_frost(
-    _data_id: &str,
+    data_id: &str,
     _unix_timestamp: i64,
 ) -> Result<[f32; 3], FrostError> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
+    let (station_id, element_id) = data_id
+        .split_once('/')
+        .ok_or(FrostError::InvalidDataId(data_id.to_string()))?;
+
     let mut resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
         .query(&[
-            ("elementids", "air_temperature"),
-            ("stationids", "18700"),
+            ("elementids", element_id),
+            ("stationids", station_id),
             ("incobs", "true"),
             ("time", "latest"),
         ])
