@@ -31,7 +31,7 @@ struct FrostObsBody {
 #[derive(Deserialize, Debug)]
 struct FrostObs {
     body: FrostObsBody,
-    _time: String,
+    time: String,
 }
 
 fn des_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
@@ -62,7 +62,21 @@ pub async fn get_timeseries_data_frost(
     _data_id: &str,
     _unix_timestamp: i64,
 ) -> Result<[f32; 3], FrostError> {
-    let mut resp: serde_json::Value = reqwest::get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get?elementids=air_temperature&stationids=18700&incobs=true&time=latest").await?.json().await?;
+    // TODO: figure out how to share the client between rove reqs
+    let client = reqwest::Client::new();
+
+    let mut resp: serde_json::Value = client
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .query(&[
+            ("elementids", "air_temperature"),
+            ("stationids", "18700"),
+            ("incobs", "true"),
+            ("time", "latest"),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let obs_portion = resp
         .get_mut("data")
@@ -86,8 +100,8 @@ pub async fn get_timeseries_data_frost(
     println!(
         "{:?}",
         obs.into_iter()
-            .map(|obs| obs.body.value)
-            .collect::<Vec<f32>>()
+            .map(|obs| (obs.body.value, obs.time))
+            .collect::<Vec<(f32, String)>>()
     );
 
     Ok([1., 1., 1.]) // TODO get actual data
