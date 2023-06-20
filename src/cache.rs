@@ -5,6 +5,8 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum CacheError {
+    #[error("series id `{0}` could not be parsed")]
+    InvalidSeriesId(String),
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
     #[error("frost connector failed")]
@@ -47,7 +49,9 @@ pub async fn get_timeseries_data(
     series_id: String,
     unix_timestamp: i64,
 ) -> Result<[f32; 3], CacheError> {
-    let (data_source, data_id) = series_id.split_once(':').unwrap();
+    let (data_source, data_id) = series_id
+        .split_once(':')
+        .ok_or(CacheError::InvalidSeriesId(series_id.clone()))?;
 
     // TODO: find a more flexible and elegant way of handling this
     match data_source {
