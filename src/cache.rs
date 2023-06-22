@@ -25,6 +25,8 @@ pub enum FrostError {
     FindObs(String),
     #[error("failed to deserialise obs to struct")]
     DeserializeObs(#[from] serde_json::Error),
+    #[error("failed to find metadata in json body: {0}")]
+    FindMetadata(String),
 }
 
 #[derive(Deserialize, Debug)]
@@ -77,6 +79,54 @@ pub async fn get_timeseries_data_frost(
         .ok_or(FrostError::InvalidDataId(data_id.to_string()))?;
 
     let time = Utc.timestamp_opt(unix_timestamp, 0).unwrap();
+
+    let mut metadata_resp: serde_json::Value = client
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .query(&[
+            ("elementids", element_id),
+            ("stationids", station_id),
+            ("incobs", "false"),
+        ])
+        .send()
+        .await?
+        .json::<serde_json::Value>()
+        .await?;
+
+    let time_resolution = metadata_resp
+        .get_mut("data")
+        .ok_or(FrostError::FindMetadata(
+            "couldn't find data field on root".to_string(),
+        ))?
+        .get_mut("tseries")
+        .ok_or(FrostError::FindMetadata(
+            "couldn't find field tseries on data".to_string(),
+        ))?
+        .get_mut(0)
+        .ok_or(FrostError::FindMetadata(
+            "tseries array is empty".to_string(),
+        ))?
+        .get_mut("header")
+        .ok_or(FrostError::FindMetadata(
+            "couldn't find field header on 1st tseries".to_string(),
+        ))?
+        .get_mut("extra")
+        .ok_or(FrostError::FindMetadata(
+            "couldn't find field extra on header".to_string(),
+        ))?
+        .get_mut("timeseries")
+        .ok_or(FrostError::FindMetadata(
+            "couldn't find field timeseries on extra".to_string(),
+        ))?
+        .get_mut("timeresolution")
+        .ok_or(FrostError::FindMetadata(
+            "couldn't find field timeresolution on quality".to_string(),
+        ))?
+        .as_str()
+        .ok_or(FrostError::FindMetadata(
+            "field timeresolution was not a string".to_string(),
+        ))?;
+
+    println!("{}", time_resolution);
 
     let mut resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
