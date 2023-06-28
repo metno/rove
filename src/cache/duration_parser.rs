@@ -11,7 +11,7 @@ pub struct RelDuration {
     months: u32,
 }
 
-pub fn _parse_duration(input: &str) -> IResult<&str, RelDuration> {
+pub fn parse_duration(input: &str) -> IResult<&str, RelDuration> {
     let (input, _) = tag("P")(input)?;
 
     let (input, (years, months, _days)) = tuple((
@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn test_parse_duration() {
         assert_eq!(
-            _parse_duration("P1YT1S"),
+            parse_duration("P1YT1S"),
             Ok((
                 "T1S",
                 RelDuration {
@@ -47,6 +47,5 @@ mod tests {
                 }
             )),
         );
-        // parse_duration("P1YT1S").unwrap();
     }
 }

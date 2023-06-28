@@ -1,4 +1,6 @@
+use crate::cache::duration_parser;
 use chrono::prelude::*;
+use nom::Finish;
 use serde::{de::Error, Deserialize, Deserializer};
 use thiserror::Error;
 
@@ -16,6 +18,8 @@ pub enum FrostError {
     DeserializeObs(#[from] serde_json::Error),
     #[error("failed to find metadata in json body: {0}")]
     FindMetadata(String),
+    #[error("duration parser failed, invalid duration: {0}")]
+    ParseDuration(String),
 }
 
 #[derive(Deserialize, Debug)]
@@ -98,7 +102,13 @@ pub async fn get_timeseries_data(
             "field timeresolution was not a string".to_string(),
         ))?;
 
-    println!("{}", time_resolution);
+    println!(
+        "{:?}",
+        duration_parser::parse_duration(time_resolution)
+            .finish()
+            .map_err(|_| FrostError::ParseDuration(time_resolution.to_string()))?
+            .1
+    );
 
     let mut resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
