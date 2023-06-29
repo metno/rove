@@ -1,7 +1,7 @@
 use olympian::points::Points;
 use thiserror::Error;
 
-mod duration_parser;
+mod duration;
 mod frost;
 
 #[derive(Error, Debug)]

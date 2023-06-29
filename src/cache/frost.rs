@@ -1,4 +1,4 @@
-use crate::cache::duration_parser;
+use crate::cache::duration;
 use chrono::prelude::*;
 use nom::Finish;
 use serde::{de::Error, Deserialize, Deserializer};
@@ -104,7 +104,7 @@ pub async fn get_timeseries_data(
 
     println!(
         "{:?}",
-        duration_parser::parse_duration(time_resolution)
+        duration::parse_duration(time_resolution)
             .finish()
             .map_err(|_| FrostError::ParseDuration(time_resolution.to_string()))?
             .1
