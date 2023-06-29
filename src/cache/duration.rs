@@ -11,8 +11,8 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
-    #[error("failed to parse duration: {input}, because: {reason}")]
-    Parse { input: String, reason: String },
+    #[error("failed to parse duration because: {0}")]
+    Parse(String),
 }
 
 fn dhms_to_duration(days: i32, hours: i32, minutes: i32, seconds: i32) -> Duration {
@@ -68,19 +68,51 @@ pub fn parse_duration(input: &str) -> IResult<&str, RelativeDuration> {
     ))
 }
 
+fn get_terminated(input: &str, terminator: char) -> Result<(&str, i32), Error> {
+    if let Some((int_string, remainder)) = input.split_once(terminator) {
+        let int = int_string
+            .parse::<i32>()
+            .map_err(|_| Error::Parse(format!("{} is not a valid i32", int_string)))?;
+        Ok((remainder, int))
+    } else {
+        Ok((input, 0))
+    }
+}
+
 fn parse_datespec(datespec: &str) -> Result<(i32, i32, i32), Error> {
-    todo!()
+    let (remainder, years) = get_terminated(datespec, 'Y')?;
+    let (remainder, months) = get_terminated(remainder, 'M')?;
+    let (remainder, days) = get_terminated(remainder, 'D')?;
+
+    if remainder.len() != 0 {
+        Err(Error::Parse(format!(
+            "trailing characters: {} in datespec: {}",
+            remainder, datespec
+        )))
+    } else {
+        Ok((years, months, days))
+    }
 }
 
 fn parse_timespec(timespec: &str) -> Result<(i32, i32, i32), Error> {
-    todo!()
+    let (remainder, hours) = get_terminated(timespec, 'H')?;
+    let (remainder, mins) = get_terminated(remainder, 'M')?;
+    let (remainder, secs) = get_terminated(remainder, 'S')?;
+
+    if remainder.len() != 0 {
+        Err(Error::Parse(format!(
+            "trailing characters: {} in timespec: {}",
+            remainder, timespec
+        )))
+    } else {
+        Ok((hours, mins, secs))
+    }
 }
 
 pub fn parse_duration_handwritten(input: &str) -> Result<RelativeDuration, Error> {
-    let input = input.strip_prefix('P').ok_or_else(|| Error::Parse {
-        input: input.to_string(),
-        reason: "duration was not prefixed with P".to_string(),
-    })?;
+    let input = input
+        .strip_prefix('P')
+        .ok_or_else(|| Error::Parse("duration was not prefixed with P".to_string()))?;
 
     let (datespec, timespec) = input.split_once('T').unwrap_or((input, ""));
 
