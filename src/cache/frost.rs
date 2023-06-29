@@ -1,6 +1,5 @@
 use crate::cache::duration;
 use chrono::prelude::*;
-use nom::Finish;
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
@@ -17,8 +16,11 @@ pub enum Error {
     DeserializeObs(#[from] serde_json::Error),
     #[error("failed to find metadata in json body: {0}")]
     FindMetadata(String),
-    #[error("duration parser failed, invalid duration: {0}")]
-    ParseDuration(String),
+    #[error("duration parser failed, invalid duration: {input}")]
+    ParseDuration {
+        source: duration::Error,
+        input: String,
+    },
 }
 
 #[derive(Deserialize, Debug)]
@@ -99,10 +101,10 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
 
     println!(
         "{:?}",
-        duration::parse_duration(time_resolution)
-            .finish()
-            .map_err(|_| Error::ParseDuration(time_resolution.to_string()))?
-            .1
+        duration::parse_duration(time_resolution).map_err(|e| Error::ParseDuration {
+            source: e,
+            input: time_resolution.to_string()
+        })?
     );
 
     let mut resp: serde_json::Value = client
