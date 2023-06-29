@@ -1,13 +1,12 @@
 use crate::cache::duration;
 use chrono::prelude::*;
 use nom::Finish;
-use serde::{de::Error, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
-// TODO: should we rename these to just Error since they're already scoped?
-pub enum FrostError {
+pub enum Error {
     #[error("data id `{0}` could not be parsed")]
     InvalidDataId(String),
     #[error("fetching data from frost failed")]
@@ -39,20 +38,18 @@ where
     D: Deserializer<'de>,
     D::Error: serde::de::Error,
 {
+    use serde::de::Error;
     let s: String = Deserialize::deserialize(deserializer)?;
     s.parse().map_err(D::Error::custom)
 }
 
-pub async fn get_timeseries_data(
-    data_id: &str,
-    unix_timestamp: i64,
-) -> Result<[f32; 3], FrostError> {
+pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[f32; 3], Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
     let (station_id, element_id) = data_id
         .split_once('/')
-        .ok_or(FrostError::InvalidDataId(data_id.to_string()))?;
+        .ok_or(Error::InvalidDataId(data_id.to_string()))?;
 
     let time = Utc.timestamp_opt(unix_timestamp, 0).unwrap();
 
@@ -70,35 +67,33 @@ pub async fn get_timeseries_data(
 
     let time_resolution = metadata_resp
         .get_mut("data")
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "couldn't find data field on root".to_string(),
         ))?
         .get_mut("tseries")
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "couldn't find field tseries on data".to_string(),
         ))?
         .get_mut(0)
-        .ok_or(FrostError::FindMetadata(
-            "tseries array is empty".to_string(),
-        ))?
+        .ok_or(Error::FindMetadata("tseries array is empty".to_string()))?
         .get_mut("header")
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "couldn't find field header on 1st tseries".to_string(),
         ))?
         .get_mut("extra")
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "couldn't find field extra on header".to_string(),
         ))?
         .get_mut("timeseries")
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "couldn't find field timeseries on extra".to_string(),
         ))?
         .get_mut("timeresolution")
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "couldn't find field timeresolution on quality".to_string(),
         ))?
         .as_str()
-        .ok_or(FrostError::FindMetadata(
+        .ok_or(Error::FindMetadata(
             "field timeresolution was not a string".to_string(),
         ))?;
 
@@ -106,7 +101,7 @@ pub async fn get_timeseries_data(
         "{:?}",
         duration::parse_duration(time_resolution)
             .finish()
-            .map_err(|_| FrostError::ParseDuration(time_resolution.to_string()))?
+            .map_err(|_| Error::ParseDuration(time_resolution.to_string()))?
             .1
     );
 
@@ -128,17 +123,17 @@ pub async fn get_timeseries_data(
 
     let obs_portion = resp
         .get_mut("data")
-        .ok_or(FrostError::FindObs(
+        .ok_or(Error::FindObs(
             "couldn't find data field on root".to_string(),
         ))?
         .get_mut("tseries")
-        .ok_or(FrostError::FindObs(
+        .ok_or(Error::FindObs(
             "couldn't find tseries field on data".to_string(),
         ))?
         .get_mut(0)
-        .ok_or(FrostError::FindObs("tseries array is empty".to_string()))?
+        .ok_or(Error::FindObs("tseries array is empty".to_string()))?
         .get_mut("observations")
-        .ok_or(FrostError::FindObs(
+        .ok_or(Error::FindObs(
             "couldn't observations data field on 1st tseries".to_string(),
         ))?
         .take();
