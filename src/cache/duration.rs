@@ -119,7 +119,8 @@ pub fn parse_duration_handwritten(input: &str) -> Result<RelativeDuration, Error
     let (years, months, days) = parse_datespec(datespec)?;
     let (hours, mins, secs) = parse_timespec(timespec)?;
 
-    todo!()
+    Ok(RelativeDuration::months(years * 12 + months)
+        .with_duration(dhms_to_duration(days, hours, mins, secs)))
 }
 
 #[cfg(test)]
