@@ -3,7 +3,7 @@ use chronoutil::RelativeDuration;
 use nom::{
     bytes::complete::tag,
     combinator::opt,
-    sequence::{terminated, tuple},
+    sequence::{preceded, terminated, tuple},
     IResult,
 };
 
@@ -46,15 +46,12 @@ fn parse_time(input: &str) -> IResult<&str, (i32, i32, i32)> {
 }
 
 pub fn parse_duration(input: &str) -> IResult<&str, RelativeDuration> {
-    let (input, _) = tag("P")(input)?;
+    let (input, ((years, months, days), time)) = preceded(
+        tag("P"),
+        tuple((parse_date, opt(preceded(tag("T"), parse_time)))),
+    )(input)?;
 
-    let (input, (years, months, days)) = parse_date(input)?;
-
-    let (input, _) = tag("T")(input)?;
-
-    let (input, (hours, minutes, seconds)) = parse_time(input)?;
-
-    println!("{}", input);
+    let (hours, minutes, seconds) = time.unwrap_or_default();
 
     Ok((
         input,
