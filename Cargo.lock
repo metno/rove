@@ -180,6 +180,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chronoutil"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "154aa5253c981d51e9466afc1e9ce41631197837fd1c41ee931008f229b8a3d7"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1116,6 +1125,7 @@ name = "rove"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "chronoutil",
  "dagmar",
  "futures",
  "nom",
