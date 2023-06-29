@@ -60,6 +60,25 @@ pub fn parse_duration(input: &str) -> IResult<&str, RelativeDuration> {
     ))
 }
 
+fn parse_datespec(datespec: &str) -> (i32, i32, i32) {
+    todo!()
+}
+
+fn parse_timespec(timespec: &str) -> (i32, i32, i32) {
+    todo!()
+}
+
+pub fn parse_duration_handwritten(input: &str) -> Option<Duration> {
+    let input = input.strip_prefix('P')?;
+
+    let (datespec, timespec) = input.split_once('T').unwrap_or((input, ""));
+
+    let (years, months, days) = parse_datespec(datespec);
+    let (hours, mins, secs) = parse_timespec(timespec);
+
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
