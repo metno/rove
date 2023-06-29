@@ -6,6 +6,14 @@ use nom::{
     sequence::{preceded, terminated, tuple},
     IResult,
 };
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum Error {
+    #[error("failed to parse duration: {input}, because: {reason}")]
+    Parse { input: String, reason: String },
+}
 
 fn dhms_to_duration(days: i32, hours: i32, minutes: i32, seconds: i32) -> Duration {
     Duration::seconds((((days * 24 + hours) * 60 + minutes) * 60 + seconds) as i64)
@@ -60,21 +68,24 @@ pub fn parse_duration(input: &str) -> IResult<&str, RelativeDuration> {
     ))
 }
 
-fn parse_datespec(datespec: &str) -> (i32, i32, i32) {
+fn parse_datespec(datespec: &str) -> Result<(i32, i32, i32), Error> {
     todo!()
 }
 
-fn parse_timespec(timespec: &str) -> (i32, i32, i32) {
+fn parse_timespec(timespec: &str) -> Result<(i32, i32, i32), Error> {
     todo!()
 }
 
-pub fn parse_duration_handwritten(input: &str) -> Option<Duration> {
-    let input = input.strip_prefix('P')?;
+pub fn parse_duration_handwritten(input: &str) -> Result<RelativeDuration, Error> {
+    let input = input.strip_prefix('P').ok_or_else(|| Error::Parse {
+        input: input.to_string(),
+        reason: "duration was not prefixed with P".to_string(),
+    })?;
 
     let (datespec, timespec) = input.split_once('T').unwrap_or((input, ""));
 
-    let (years, months, days) = parse_datespec(datespec);
-    let (hours, mins, secs) = parse_timespec(timespec);
+    let (years, months, days) = parse_datespec(datespec)?;
+    let (hours, mins, secs) = parse_timespec(timespec)?;
 
     todo!()
 }
