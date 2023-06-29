@@ -29,7 +29,7 @@ fn parse_datespec(datespec: &str) -> Result<(i32, i32, i32), Error> {
     let (remainder, months) = get_terminated(remainder, 'M')?;
     let (remainder, days) = get_terminated(remainder, 'D')?;
 
-    if remainder.len() != 0 {
+    if !remainder.is_empty() {
         Err(Error::Parse(format!(
             "trailing characters: {} in datespec: {}",
             remainder, datespec
@@ -44,7 +44,7 @@ fn parse_timespec(timespec: &str) -> Result<(i32, i32, i32), Error> {
     let (remainder, mins) = get_terminated(remainder, 'M')?;
     let (remainder, secs) = get_terminated(remainder, 'S')?;
 
-    if remainder.len() != 0 {
+    if !remainder.is_empty() {
         Err(Error::Parse(format!(
             "trailing characters: {} in timespec: {}",
             remainder, timespec
