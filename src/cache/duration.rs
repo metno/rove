@@ -66,12 +66,22 @@ mod tests {
 
     #[test]
     fn test_parse_duration() {
-        assert_eq!(
-            parse_duration("P1YT1S"),
-            Ok((
-                "",
+        [
+            (
+                "P1YT1S",
                 RelativeDuration::months(12).with_duration(Duration::seconds(1)),
-            )),
-        );
+            ),
+            (
+                "P2Y2M2DT2H2M2S",
+                RelativeDuration::months(2 * 12 + 2).with_duration(dhms_to_duration(2, 2, 2, 2)),
+            ),
+            (
+                "P1M",
+                RelativeDuration::months(1).with_duration(Duration::zero()),
+            ),
+            ("PT10M", RelativeDuration::minutes(10)),
+        ]
+        .into_iter()
+        .for_each(|(input, expected)| assert_eq!(parse_duration(input), Ok(("", expected))))
     }
 }
