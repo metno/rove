@@ -1,5 +1,6 @@
 use crate::cache::duration;
 use chrono::prelude::*;
+use chronoutil::RelativeDuration;
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
@@ -45,28 +46,7 @@ where
     s.parse().map_err(D::Error::custom)
 }
 
-pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[f32; 3], Error> {
-    // TODO: figure out how to share the client between rove reqs
-    let client = reqwest::Client::new();
-
-    let (station_id, element_id) = data_id
-        .split_once('/')
-        .ok_or(Error::InvalidDataId(data_id.to_string()))?;
-
-    let time = Utc.timestamp_opt(unix_timestamp, 0).unwrap();
-
-    let mut metadata_resp: serde_json::Value = client
-        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
-        .query(&[
-            ("elementids", element_id),
-            ("stationids", station_id),
-            ("incobs", "false"),
-        ])
-        .send()
-        .await?
-        .json::<serde_json::Value>()
-        .await?;
-
+fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
     let time_resolution = metadata_resp
         .get_mut("data")
         .ok_or(Error::FindMetadata(
@@ -99,30 +79,13 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
             "field timeresolution was not a string".to_string(),
         ))?;
 
-    println!(
-        "{:?}",
-        duration::parse_duration(time_resolution).map_err(|e| Error::ParseDuration {
-            source: e,
-            input: time_resolution.to_string()
-        })?
-    );
+    duration::parse_duration(time_resolution).map_err(|e| Error::ParseDuration {
+        source: e,
+        input: time_resolution.to_string(),
+    })
+}
 
-    let mut resp: serde_json::Value = client
-        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
-        .query(&[
-            ("elementids", element_id),
-            ("stationids", station_id),
-            ("incobs", "true"),
-            (
-                "time",
-                time.to_rfc3339_opts(SecondsFormat::Secs, true).as_str(),
-            ),
-        ])
-        .send()
-        .await?
-        .json()
-        .await?;
-
+fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
     let obs_portion = resp
         .get_mut("data")
         .ok_or(Error::FindObs(
@@ -141,6 +104,51 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
         .take();
 
     let obs: Vec<FrostObs> = serde_json::from_value(obs_portion)?;
+
+    Ok(obs)
+}
+
+pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[f32; 3], Error> {
+    // TODO: figure out how to share the client between rove reqs
+    let client = reqwest::Client::new();
+
+    let (station_id, element_id) = data_id
+        .split_once('/')
+        .ok_or(Error::InvalidDataId(data_id.to_string()))?;
+
+    let time = Utc.timestamp_opt(unix_timestamp, 0).unwrap();
+
+    let metadata_resp: serde_json::Value = client
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .query(&[
+            ("elementids", element_id),
+            ("stationids", station_id),
+            ("incobs", "false"),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    println!("{:?}", extract_duration(metadata_resp));
+
+    let resp: serde_json::Value = client
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .query(&[
+            ("elementids", element_id),
+            ("stationids", station_id),
+            ("incobs", "true"),
+            (
+                "time",
+                time.to_rfc3339_opts(SecondsFormat::Secs, true).as_str(),
+            ),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let obs: Vec<FrostObs> = extract_obs(resp)?;
 
     println!(
         "{:?}",
