@@ -1,5 +1,5 @@
 use crate::cache::duration;
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
@@ -130,7 +130,9 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
         .json()
         .await?;
 
-    println!("{:?}", extract_duration(metadata_resp));
+    let period = extract_duration(metadata_resp)?;
+
+    println!("{:?}", period);
 
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
@@ -140,7 +142,12 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
             ("incobs", "true"),
             (
                 "time",
-                time.to_rfc3339_opts(SecondsFormat::Secs, true).as_str(),
+                format!(
+                    "{}/{}",
+                    (time - period * 2).to_rfc3339_opts(SecondsFormat::Secs, true),
+                    (time + Duration::seconds(1)).to_rfc3339_opts(SecondsFormat::Secs, true)
+                )
+                .as_str(),
             ),
         ])
         .send()
