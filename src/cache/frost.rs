@@ -22,6 +22,8 @@ pub enum Error {
         source: duration::Error,
         input: String,
     },
+    #[error("{0}")]
+    MissingObs(String),
 }
 
 #[derive(Deserialize, Debug)]
@@ -132,8 +134,6 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
 
     let period = extract_duration(metadata_resp)?;
 
-    println!("{:?}", period);
-
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
         .query(&[
@@ -157,12 +157,28 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
 
     let obs: Vec<FrostObs> = extract_obs(resp)?;
 
-    println!(
-        "{:?}",
-        obs.into_iter()
-            .map(|obs| (obs.body.value, obs.time))
-            .collect::<Vec<(f32, String)>>()
-    );
+    if obs.len() < 3 {
+        return Err(Error::MissingObs(format!(
+            "found {} obs, need at least 3",
+            obs.len()
+        )));
+    }
 
-    Ok([1., 1., 1.]) // TODO get actual data
+    if chrono::DateTime::parse_from_rfc3339(obs.last().unwrap().time.as_str())
+        .unwrap()
+        .timestamp()
+        != unix_timestamp
+    {
+        return Err(Error::MissingObs(
+            "final obs timestamp did not match input timestamp".to_string(),
+        ));
+    }
+
+    Ok(obs
+        .into_iter()
+        .map(|obs| obs.body.value)
+        .take(3)
+        .collect::<Vec<f32>>()
+        .try_into()
+        .unwrap())
 }
