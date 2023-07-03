@@ -15,17 +15,20 @@ pub enum Error {
     Frost(#[from] frost::Error),
 }
 
-pub async fn get_timeseries_data(
-    series_id: String,
-    unix_timestamp: i64,
-) -> Result<[f32; 3], Error> {
+// TODO: Should the i64s here be a wrapper type?
+pub enum Timespec {
+    Single(i64),
+    Range { start: i64, end: i64 },
+}
+
+pub async fn get_timeseries_data(series_id: String, timespec: Timespec) -> Result<[f32; 3], Error> {
     let (data_source, data_id) = series_id
         .split_once(':')
         .ok_or(Error::InvalidSeriesId(series_id.clone()))?;
 
     // TODO: find a more flexible and elegant way of handling this
     match data_source {
-        "frost" => frost::get_timeseries_data(data_id, unix_timestamp)
+        "frost" => frost::get_timeseries_data(data_id, timespec)
             .await
             .map_err(Error::Frost),
         _ => Err(Error::InvalidDataSource(data_source.to_string())),

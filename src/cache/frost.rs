@@ -1,4 +1,4 @@
-use crate::cache::duration;
+use crate::cache::{duration, Timespec};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use serde::{Deserialize, Deserializer};
@@ -110,7 +110,7 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
     Ok(obs)
 }
 
-pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[f32; 3], Error> {
+pub async fn get_timeseries_data(data_id: &str, timespec: Timespec) -> Result<[f32; 3], Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -118,7 +118,16 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
         .split_once('/')
         .ok_or(Error::InvalidDataId(data_id.to_string()))?;
 
-    let time = Utc.timestamp_opt(unix_timestamp, 0).unwrap();
+    let (start_time, end_time) = match timespec {
+        Timespec::Single(timestamp) => {
+            let time = Utc.timestamp_opt(timestamp, 0).unwrap();
+            (time, time)
+        }
+        Timespec::Range { start, end } => (
+            Utc.timestamp_opt(start, 0).unwrap(),
+            Utc.timestamp_opt(end, 0).unwrap(),
+        ),
+    };
 
     let metadata_resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
@@ -144,8 +153,8 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
                 "time",
                 format!(
                     "{}/{}",
-                    (time - period * 2).to_rfc3339_opts(SecondsFormat::Secs, true),
-                    (time + Duration::seconds(1)).to_rfc3339_opts(SecondsFormat::Secs, true)
+                    (start_time - period * 2).to_rfc3339_opts(SecondsFormat::Secs, true),
+                    (end_time + Duration::seconds(1)).to_rfc3339_opts(SecondsFormat::Secs, true)
                 )
                 .as_str(),
             ),
@@ -164,10 +173,7 @@ pub async fn get_timeseries_data(data_id: &str, unix_timestamp: i64) -> Result<[
         )));
     }
 
-    if chrono::DateTime::parse_from_rfc3339(obs.last().unwrap().time.as_str())
-        .unwrap()
-        .timestamp()
-        != unix_timestamp
+    if chrono::DateTime::parse_from_rfc3339(obs.last().unwrap().time.as_str()).unwrap() != end_time
     {
         return Err(Error::MissingObs(
             "final obs timestamp did not match input timestamp".to_string(),

@@ -44,9 +44,11 @@ impl Runner for MyRunner {
             "dip_check" => {
                 let data = cache::get_timeseries_data(
                     req.series_id,
-                    req.time
-                        .ok_or_else(|| Status::invalid_argument("invalid timestamp"))?
-                        .seconds,
+                    cache::Timespec::Single(
+                        req.time
+                            .ok_or_else(|| Status::invalid_argument("invalid timestamp"))?
+                            .seconds,
+                    ),
                 )
                 .await
                 .map_err(|err| Status::not_found(format!("data not found by cache: {}", err)))?;
