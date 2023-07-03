@@ -110,7 +110,11 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
     Ok(obs)
 }
 
-pub async fn get_timeseries_data(data_id: &str, timespec: Timespec) -> Result<[f32; 3], Error> {
+pub async fn get_timeseries_data(
+    data_id: &str,
+    timespec: Timespec,
+    num_leading_points: u8,
+) -> Result<[f32; 3], Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -153,7 +157,8 @@ pub async fn get_timeseries_data(data_id: &str, timespec: Timespec) -> Result<[f
                 "time",
                 format!(
                     "{}/{}",
-                    (start_time - period * 2).to_rfc3339_opts(SecondsFormat::Secs, true),
+                    (start_time - period * i32::from(num_leading_points))
+                        .to_rfc3339_opts(SecondsFormat::Secs, true),
                     (end_time + Duration::seconds(1)).to_rfc3339_opts(SecondsFormat::Secs, true)
                 )
                 .as_str(),
@@ -166,10 +171,11 @@ pub async fn get_timeseries_data(data_id: &str, timespec: Timespec) -> Result<[f
 
     let obs: Vec<FrostObs> = extract_obs(resp)?;
 
-    if obs.len() < 3 {
+    if obs.len() < num_leading_points as usize + 1 {
         return Err(Error::MissingObs(format!(
-            "found {} obs, need at least 3",
-            obs.len()
+            "found {} obs, need at least {}",
+            obs.len(),
+            num_leading_points + 1,
         )));
     }
 
