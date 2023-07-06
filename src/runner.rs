@@ -5,7 +5,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
-    #[error("unknown test name {0}")]
+    #[error("test name {0} not found in runner")]
     InvalidTestName(String),
 }
 

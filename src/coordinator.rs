@@ -1,7 +1,6 @@
 use crate::{
     data_switch::{DataSwitch, Timespec},
-    runner::run_test,
-    util,
+    runner, util,
     util::{ListenerType, Timestamp},
 };
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
@@ -27,6 +26,8 @@ mod coordinator_pb {
 pub enum Error {
     #[error("test name {0} not found in dag")]
     TestNotInDag(String),
+    // #[error("failed to run test")]
+    // Runner(#[from] runner::Error),
 }
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
@@ -113,16 +114,20 @@ impl Coordinator for MyCoordinator<'static> {
             .data_switch
             .get_series_data(
                 req.series_id.as_str(),
-                // TODO: get rid of this unwrap
-                Timespec::Single(Timestamp(req.time.as_ref().unwrap().seconds)),
+                Timespec::Single(Timestamp(
+                    req.time
+                        .as_ref()
+                        .ok_or(Status::invalid_argument("invalid timestamp"))?
+                        .seconds,
+                )),
                 2,
             )
             .await
-            .map_err(|err| Status::not_found(format!("data not found by data_switch: {}", err)))?;
+            .map_err(|e| Status::not_found(format!("data not found by data_switch: {}", e)))?;
 
-        // TODO: remove this unwrap
-        // TODO: keep internal error when mapping errors?
-        let subdag = self.construct_subdag(req.tests).unwrap();
+        let subdag = self
+            .construct_subdag(req.tests)
+            .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
@@ -132,7 +137,7 @@ impl Coordinator for MyCoordinator<'static> {
             let mut test_futures = FuturesUnordered::new();
 
             for leaf_index in subdag.leaves.clone().into_iter() {
-                test_futures.push(run_test(
+                test_futures.push(runner::run_test(
                     subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
                     &data,
                 ));
@@ -140,6 +145,9 @@ impl Coordinator for MyCoordinator<'static> {
 
             while let Some(res) = test_futures.next().await {
                 // TODO: remove this unwrap
+                // can't return error here because we're outside the main thread
+                // need to either add error into ValidateResponse, or eliminate error
+                // by ensuring consistency between dag and runner
                 let unwrapped = res.unwrap();
                 let validate_response = ValidateResponse {
                     series_id: req.series_id.clone(),
@@ -169,7 +177,7 @@ impl Coordinator for MyCoordinator<'static> {
 
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
-                        test_futures.push(run_test(
+                        test_futures.push(runner::run_test(
                             subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
                             &data,
                         ))
