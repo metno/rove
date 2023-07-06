@@ -133,7 +133,7 @@ pub async fn get_timeseries_data(
     data_id: &str,
     timespec: Timespec,
     num_leading_points: u8,
-) -> Result<[f32; 3], Error> {
+) -> Result<TimeseriesCache, Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -204,11 +204,9 @@ pub async fn get_timeseries_data(
         ));
     }
 
-    Ok(obs
-        .into_iter()
-        .map(|obs| obs.body.value)
-        .take(3)
-        .collect::<Vec<f32>>()
-        .try_into()
-        .unwrap())
+    Ok(TimeseriesCache(
+        obs.into_iter()
+            .map(|obs| (obs.time, obs.body.value))
+            .collect(),
+    ))
 }

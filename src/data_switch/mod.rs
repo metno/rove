@@ -16,6 +16,8 @@ pub enum Error {
     Frost(#[from] frost::Error),
 }
 
+pub struct TimeseriesCache(pub Vec<(Timestamp, f32)>);
+
 pub enum Timespec {
     Single(Timestamp),
     Range { start: Timestamp, end: Timestamp },
@@ -25,7 +27,7 @@ pub async fn get_timeseries_data(
     series_id: String,
     timespec: Timespec,
     num_leading_points: u8,
-) -> Result<[f32; 3], Error> {
+) -> Result<TimeseriesCache, Error> {
     let (data_source, data_id) = series_id
         .split_once(':')
         .ok_or(Error::InvalidSeriesId(series_id.clone()))?;

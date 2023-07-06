@@ -21,7 +21,18 @@ pub async fn run_test(
             )
             .await
             .map_err(|err| Status::not_found(format!("data not found by cache: {}", err)))?;
-            dip_check(data, 2., 3.).into() //TODO use actual test params
+            // TODO: fix this mess...
+            dip_check(
+                data.0
+                    .into_iter()
+                    .map(|(_, v)| v)
+                    .collect::<Vec<f32>>()
+                    .try_into()
+                    .unwrap(),
+                2.,
+                3.,
+            )
+            .into() //TODO use actual test params
         }
         _ => {
             if test.starts_with("test") {
