@@ -1,4 +1,4 @@
-use crate::cache::{duration, Timespec};
+use crate::data_switch::{duration, Timespec};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use serde::{Deserialize, Deserializer};
