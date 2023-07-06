@@ -1,6 +1,6 @@
 use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateOneRequest};
 use prost_types::Timestamp;
-use rove::{coordinator, runner, util::ListenerType};
+use rove::{coordinator, util::ListenerType};
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 use tokio::net::{UnixListener, UnixStream};
@@ -22,29 +22,15 @@ async fn integration_test() {
     //     .with_max_level(tracing::Level::INFO)
     //     .init();
 
-    let runner_socket = NamedTempFile::new().unwrap();
-    let runner_socket = Arc::new(runner_socket.into_temp_path());
-    std::fs::remove_file(&*runner_socket).unwrap();
-    let runner_uds = UnixListener::bind(&*runner_socket).unwrap();
-    let runner_stream = UnixListenerStream::new(runner_uds);
-    let runner_future = async {
-        runner::start_server(ListenerType::UnixListener(runner_stream))
-            .await
-            .unwrap();
-    };
-
     let coordintor_socket = NamedTempFile::new().unwrap();
     let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
     std::fs::remove_file(&*coordintor_socket).unwrap();
     let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
     let coordintor_stream = UnixListenerStream::new(coordintor_uds);
     let coordinator_future = async {
-        coordinator::start_server(
-            ListenerType::UnixListener(coordintor_stream),
-            coordinator::EndpointType::Socket(Arc::clone(&runner_socket)),
-        )
-        .await
-        .unwrap();
+        coordinator::start_server(ListenerType::UnixListener(coordintor_stream))
+            .await
+            .unwrap();
     };
 
     let coordinator_channel = Endpoint::try_from("http://any.url")
@@ -77,7 +63,6 @@ async fn integration_test() {
     };
 
     tokio::select! {
-        _ = runner_future => panic!("runner returned first"),
         _ = coordinator_future => panic!("coordinator returned first"),
         _ = request_future => (),
     }

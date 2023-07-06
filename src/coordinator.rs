@@ -1,36 +1,26 @@
-use crate::util::ListenerType;
+// use crate::util::{Flag, ListenerType};
+use crate::{util, util::ListenerType};
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator_pb::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
 use prost_types::Timestamp;
-use runner_pb::{runner_client::RunnerClient, RunTestRequest, RunTestResponse};
 use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, sync::Arc};
 use tempfile::TempPath;
-use tokio::{net::UnixStream, sync::mpsc};
+use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{
     transport::{Endpoint, Server},
     Request, Response, Status,
 };
-use tower::service_fn;
-
-mod util {
-    tonic::include_proto!("util");
-}
 
 mod coordinator_pb {
     tonic::include_proto!("coordinator");
 }
 
-mod runner_pb {
-    tonic::include_proto!("runner");
-}
-
 #[derive(Debug)]
 enum CoordinatorError {
     InvalidLookup,
-    RunnerConnectionFail,
     RunTestFail,
 }
 
@@ -38,7 +28,6 @@ impl Display for CoordinatorError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::InvalidLookup => write!(f, "requested test not found in dag"),
-            Self::RunnerConnectionFail => write!(f, "failed to connect to runner"),
             Self::RunTestFail => write!(f, "RunTest request failed"),
         }
     }
@@ -55,55 +44,28 @@ pub enum EndpointType {
 }
 
 // TODO: keep internal error when mapping errors?
+// TODO: rearrange internal args for consistency with inner func
 async fn run_test(
-    endpoint: EndpointType,
     series_id: String,
     test_name: String,
     time: Timestamp,
-) -> Result<(String, RunTestResponse), CoordinatorError> {
-    let mut client = match endpoint {
-        EndpointType::Uri(endpt) => RunnerClient::connect(endpt)
-            .await
-            .map_err(|_err| CoordinatorError::RunnerConnectionFail)?,
-        EndpointType::Socket(socket) => {
-            let channel = Endpoint::try_from("http://any.url")
-                .unwrap()
-                .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
-                    let socket = Arc::clone(&socket);
-                    async move { UnixStream::connect(&*socket).await }
-                }))
-                .await
-                .unwrap();
-            RunnerClient::new(channel)
-        }
-    };
-
+) -> Result<(String, util::Flag), CoordinatorError> {
     Ok((
         test_name.clone(),
-        client
-            .run_test(tonic::Request::new(RunTestRequest {
-                series_id,
-                time: Some(time),
-                test: test_name,
-            }))
+        crate::runner::run_test(test_name, series_id, time)
             .await
-            .map_err(|_err| CoordinatorError::RunTestFail)?
-            .into_inner(),
+            .map_err(|_err| CoordinatorError::RunTestFail)?,
     ))
 }
 
 #[derive(Debug)]
 struct MyCoordinator {
     dag: Dag<String>,
-    runner_endpoint: EndpointType,
 }
 
 impl MyCoordinator {
-    fn new(dag: Dag<String>, runner_endpoint: EndpointType) -> Self {
-        MyCoordinator {
-            dag,
-            runner_endpoint,
-        }
+    fn new(dag: Dag<String>) -> Self {
+        MyCoordinator { dag }
     }
 
     fn construct_subdag(
@@ -173,8 +135,6 @@ impl Coordinator for MyCoordinator {
         // TODO: remove this unwrap
         let subdag = self.construct_subdag(req.tests).unwrap();
 
-        let endpoint = self.runner_endpoint.clone();
-
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = mpsc::channel(128);
@@ -184,7 +144,6 @@ impl Coordinator for MyCoordinator {
 
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(run_test(
-                    endpoint.clone(),
                     req.series_id.clone(),
                     subdag.nodes.get(leaf_index).unwrap().elem.clone(),
                     req.time.as_ref().unwrap().clone(),
@@ -198,7 +157,7 @@ impl Coordinator for MyCoordinator {
                     series_id: req.series_id.clone(),
                     time: req.time.clone(),
                     test: unwrapped.0.clone(),
-                    flag: unwrapped.1.flag,
+                    flag: unwrapped.1.into(),
                 };
                 match tx.send(Ok(validate_response)).await {
                     Ok(_) => {
@@ -223,7 +182,6 @@ impl Coordinator for MyCoordinator {
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
                         test_futures.push(run_test(
-                            endpoint.clone(),
                             req.series_id.clone(),
                             subdag.nodes.get(*parent_index).unwrap().elem.clone(),
                             req.time.as_ref().unwrap().clone(),
@@ -256,17 +214,14 @@ fn construct_dag_placeholder() -> Dag<String> {
     dag
 }
 
-pub async fn start_server(
-    listener: ListenerType,
-    runner_endpoint: EndpointType,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
             tracing_subscriber::fmt()
                 .with_max_level(tracing::Level::DEBUG)
                 .init();
 
-            let coordinator = MyCoordinator::new(construct_dag_placeholder(), runner_endpoint);
+            let coordinator = MyCoordinator::new(construct_dag_placeholder());
 
             tracing::info!(message = "Starting server.", %addr);
 
@@ -277,7 +232,7 @@ pub async fn start_server(
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let coordinator = MyCoordinator::new(construct_dag_placeholder(), runner_endpoint);
+            let coordinator = MyCoordinator::new(construct_dag_placeholder());
 
             Server::builder()
                 .add_service(CoordinatorServer::new(coordinator))
@@ -295,10 +250,7 @@ mod tests {
 
     #[test]
     fn test_construct_subdag() {
-        let coordinator = MyCoordinator::new(
-            construct_dag_placeholder(),
-            EndpointType::Uri(Endpoint::try_from("http://any.url").unwrap()),
-        );
+        let coordinator = MyCoordinator::new(construct_dag_placeholder());
 
         assert_eq!(coordinator.dag.count_edges(), 6);
 
