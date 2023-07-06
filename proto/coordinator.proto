@@ -8,7 +8,7 @@ package coordinator;
 service Coordinator {
   rpc ValidateOne (ValidateOneRequest) returns (stream ValidateResponse) {}
   /* rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateResponse) {} */
-  /* rpc ValidateSlice (ValidateSliceRequest) returns (stream ValidateResponse) {} */
+  /* rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateResponse) {} */
 }
 
 // test one piece of data
@@ -34,7 +34,7 @@ message ValidateSeriesRequest {
 
 // tests a time slice with optional list of data sources to use, and a list of
 // coordinates that define a polygon representing the area to be tested
-message ValidateSliceRequest {
+message ValidateSpatialRequest {
   // if not provided, all available sources will be used
   repeated string data_sources = 1;
   // if not provided, the whole globe will be used

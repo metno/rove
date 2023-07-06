@@ -14,7 +14,7 @@ pub async fn run_test(
 ) -> Result<Flag, Status> {
     let flag: Flag = match test.as_str() {
         "dip_check" => {
-            let data = data_switch::get_timeseries_data(
+            let data = data_switch::get_series_data(
                 series_id,
                 data_switch::Timespec::Single(Timestamp(time.seconds)),
                 2,

@@ -1,5 +1,5 @@
 use crate::{
-    data_switch::{duration, TimeseriesCache, Timespec},
+    data_switch::{duration, SeriesCache, Timespec},
     util::Timestamp,
 };
 use chrono::{prelude::*, Duration};
@@ -129,11 +129,11 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
     Ok(obs)
 }
 
-pub async fn get_timeseries_data(
+pub async fn get_series_data(
     data_id: &str,
     timespec: Timespec,
     num_leading_points: u8,
-) -> Result<TimeseriesCache, Error> {
+) -> Result<SeriesCache, Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -204,7 +204,7 @@ pub async fn get_timeseries_data(
         ));
     }
 
-    Ok(TimeseriesCache(
+    Ok(SeriesCache(
         obs.into_iter()
             .map(|obs| (obs.time, obs.body.value))
             .collect(),

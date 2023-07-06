@@ -16,25 +16,26 @@ pub enum Error {
     Frost(#[from] frost::Error),
 }
 
-pub struct TimeseriesCache(pub Vec<(Timestamp, f32)>);
+// TODO: move this to olympian?
+pub struct SeriesCache(pub Vec<(Timestamp, f32)>);
 
 pub enum Timespec {
     Single(Timestamp),
     Range { start: Timestamp, end: Timestamp },
 }
 
-pub async fn get_timeseries_data(
+pub async fn get_series_data(
     series_id: String,
     timespec: Timespec,
     num_leading_points: u8,
-) -> Result<TimeseriesCache, Error> {
+) -> Result<SeriesCache, Error> {
     let (data_source, data_id) = series_id
         .split_once(':')
         .ok_or(Error::InvalidSeriesId(series_id.clone()))?;
 
     // TODO: find a more flexible and elegant way of handling this
     match data_source {
-        "frost" => frost::get_timeseries_data(data_id, timespec, num_leading_points)
+        "frost" => frost::get_series_data(data_id, timespec, num_leading_points)
             .await
             .map_err(Error::Frost),
         _ => Err(Error::InvalidDataSource(data_source.to_string())),
