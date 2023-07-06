@@ -25,13 +25,13 @@ pub enum Timespec {
 }
 
 pub async fn get_series_data(
-    series_id: String,
+    series_id: &str,
     timespec: Timespec,
     num_leading_points: u8,
 ) -> Result<SeriesCache, Error> {
     let (data_source, data_id) = series_id
         .split_once(':')
-        .ok_or(Error::InvalidSeriesId(series_id.clone()))?;
+        .ok_or_else(|| Error::InvalidSeriesId(series_id.to_string()))?;
 
     // TODO: find a more flexible and elegant way of handling this
     match data_source {

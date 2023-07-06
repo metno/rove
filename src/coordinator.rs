@@ -48,11 +48,11 @@ pub enum EndpointType {
 
 // TODO: keep internal error when mapping errors?
 async fn run_test(
-    test_name: String,
+    test_name: &str,
     data: &SeriesCache,
 ) -> Result<(String, util::Flag), CoordinatorError> {
     Ok((
-        test_name.clone(),
+        test_name.to_string(),
         crate::runner::run_test(test_name, data)
             .await
             .map_err(|_err| CoordinatorError::RunTestFail)?,
@@ -134,7 +134,7 @@ impl Coordinator for MyCoordinator {
         let req = request.into_inner();
 
         let data = get_series_data(
-            req.series_id.clone(),
+            req.series_id.as_str(),
             // TODO: get rid of this unwrap
             Timespec::Single(Timestamp(req.time.as_ref().unwrap().seconds)),
             2,
@@ -154,7 +154,7 @@ impl Coordinator for MyCoordinator {
 
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(run_test(
-                    subdag.nodes.get(leaf_index).unwrap().elem.clone(),
+                    subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
                     &data,
                 ));
             }
@@ -191,7 +191,7 @@ impl Coordinator for MyCoordinator {
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
                         test_futures.push(run_test(
-                            subdag.nodes.get(*parent_index).unwrap().elem.clone(),
+                            subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
                             &data,
                         ))
                     }

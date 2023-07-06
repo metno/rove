@@ -4,11 +4,11 @@ use tonic::Status;
 
 // TODO: get rid of Status
 pub async fn run_test(
-    test: String,
+    test: &str,
     data: &SeriesCache,
     // TODO: convert to util::Timestamp earlier?
 ) -> Result<Flag, Status> {
-    let flag: Flag = match test.as_str() {
+    let flag: Flag = match test {
         "dip_check" => {
             // TODO: fix this mess... copying, unwrapping
             dip_check(
