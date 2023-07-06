@@ -22,4 +22,5 @@ pub enum ListenerType {
 }
 
 /// Unix timestamp, inner i64 is seconds since unix epoch
+#[derive(Debug)]
 pub struct Timestamp(pub i64);

@@ -1,4 +1,7 @@
-use crate::data_switch::{duration, Timespec};
+use crate::{
+    data_switch::{duration, TimeseriesCache, Timespec},
+    util::Timestamp,
+};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use serde::{Deserialize, Deserializer};
@@ -32,10 +35,12 @@ struct FrostObsBody {
     value: f32,
 }
 
+// TODO: flatten this with FrostObsBody?
 #[derive(Deserialize, Debug)]
 struct FrostObs {
     body: FrostObsBody,
-    time: String,
+    #[serde(deserialize_with = "des_time")]
+    time: Timestamp,
 }
 
 fn des_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
@@ -46,6 +51,20 @@ where
     use serde::de::Error;
     let s: String = Deserialize::deserialize(deserializer)?;
     s.parse().map_err(D::Error::custom)
+}
+
+fn des_time<'de, D>(deserializer: D) -> Result<Timestamp, D::Error>
+where
+    D: Deserializer<'de>,
+    D::Error: serde::de::Error,
+{
+    use serde::de::Error;
+    let s: String = Deserialize::deserialize(deserializer)?;
+    Ok(Timestamp(
+        chrono::DateTime::parse_from_rfc3339(s.as_str())
+            .map_err(D::Error::custom)?
+            .timestamp(),
+    ))
 }
 
 fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
@@ -179,8 +198,7 @@ pub async fn get_timeseries_data(
         )));
     }
 
-    if chrono::DateTime::parse_from_rfc3339(obs.last().unwrap().time.as_str()).unwrap() != end_time
-    {
+    if obs.last().unwrap().time.0 != end_time.timestamp() {
         return Err(Error::MissingObs(
             "final obs timestamp did not match input timestamp".to_string(),
         ));
