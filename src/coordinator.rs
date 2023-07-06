@@ -1,8 +1,8 @@
 use crate::{
-    data_switch::{get_series_data, SeriesCache, Timespec},
+    data_switch::{get_series_data, Timespec},
+    runner::run_test,
     util,
-    util::ListenerType,
-    util::Timestamp,
+    util::{ListenerType, Timestamp},
 };
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator_pb::{ValidateOneRequest, ValidateResponse};
@@ -24,14 +24,12 @@ mod coordinator_pb {
 #[derive(Debug)]
 enum CoordinatorError {
     InvalidLookup,
-    RunTestFail,
 }
 
 impl Display for CoordinatorError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::InvalidLookup => write!(f, "requested test not found in dag"),
-            Self::RunTestFail => write!(f, "RunTest request failed"),
         }
     }
 }
@@ -44,19 +42,6 @@ type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>
 pub enum EndpointType {
     Uri(Endpoint),
     Socket(Arc<TempPath>),
-}
-
-// TODO: keep internal error when mapping errors?
-async fn run_test(
-    test_name: &str,
-    data: &SeriesCache,
-) -> Result<(String, util::Flag), CoordinatorError> {
-    Ok((
-        test_name.to_string(),
-        crate::runner::run_test(test_name, data)
-            .await
-            .map_err(|_err| CoordinatorError::RunTestFail)?,
-    ))
 }
 
 #[derive(Debug)]
@@ -143,6 +128,7 @@ impl Coordinator for MyCoordinator {
         .map_err(|err| Status::not_found(format!("data not found by data_switch: {}", err)))?;
 
         // TODO: remove this unwrap
+        // TODO: keep internal error when mapping errors?
         let subdag = self.construct_subdag(req.tests).unwrap();
 
         // spawn and channel are required if you want handle "disconnect" functionality

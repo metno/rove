@@ -3,11 +3,7 @@ use olympian::qc_tests::dip_check;
 use tonic::Status;
 
 // TODO: get rid of Status
-pub async fn run_test(
-    test: &str,
-    data: &SeriesCache,
-    // TODO: convert to util::Timestamp earlier?
-) -> Result<Flag, Status> {
+pub async fn run_test(test: &str, data: &SeriesCache) -> Result<(String, Flag), Status> {
     let flag: Flag = match test {
         "dip_check" => {
             // TODO: fix this mess... copying, unwrapping
@@ -32,5 +28,5 @@ pub async fn run_test(
         }
     };
 
-    Ok(flag)
+    Ok((test.to_string(), flag))
 }
