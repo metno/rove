@@ -1,15 +1,22 @@
-use crate::{data_switch, util::Flag};
+use crate::{
+    data_switch,
+    util::{Flag, Timestamp},
+};
 use olympian::qc_tests::dip_check;
-use prost_types::Timestamp;
 use tonic::Status;
 
 // TODO: get rid of Status
-pub async fn run_test(test: String, series_id: String, time: Timestamp) -> Result<Flag, Status> {
+pub async fn run_test(
+    test: String,
+    series_id: String,
+    // TODO: convert to util::Timestamp earlier?
+    time: prost_types::Timestamp,
+) -> Result<Flag, Status> {
     let flag: Flag = match test.as_str() {
         "dip_check" => {
             let data = data_switch::get_timeseries_data(
                 series_id,
-                data_switch::Timespec::Single(time.seconds),
+                data_switch::Timespec::Single(Timestamp(time.seconds)),
                 2,
             )
             .await

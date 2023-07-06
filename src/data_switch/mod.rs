@@ -1,3 +1,4 @@
+use crate::util::Timestamp;
 use olympian::points::Points;
 use thiserror::Error;
 
@@ -15,10 +16,9 @@ pub enum Error {
     Frost(#[from] frost::Error),
 }
 
-// TODO: Should the i64s here be a wrapper type?
 pub enum Timespec {
-    Single(i64),
-    Range { start: i64, end: i64 },
+    Single(Timestamp),
+    Range { start: Timestamp, end: Timestamp },
 }
 
 pub async fn get_timeseries_data(

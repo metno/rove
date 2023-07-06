@@ -124,12 +124,12 @@ pub async fn get_timeseries_data(
 
     let (start_time, end_time) = match timespec {
         Timespec::Single(timestamp) => {
-            let time = Utc.timestamp_opt(timestamp, 0).unwrap();
+            let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
             (time, time)
         }
         Timespec::Range { start, end } => (
-            Utc.timestamp_opt(start, 0).unwrap(),
-            Utc.timestamp_opt(end, 0).unwrap(),
+            Utc.timestamp_opt(start.0, 0).unwrap(),
+            Utc.timestamp_opt(end.0, 0).unwrap(),
         ),
     };
 

@@ -20,3 +20,6 @@ pub enum ListenerType {
     Addr(SocketAddr),
     UnixListener(UnixListenerStream),
 }
+
+/// Unix timestamp, inner i64 is seconds since unix epoch
+pub struct Timestamp(pub i64);
