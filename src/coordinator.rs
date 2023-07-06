@@ -1,10 +1,13 @@
-// use crate::util::{Flag, ListenerType};
-use crate::{util, util::ListenerType};
+use crate::{
+    data_switch::{get_series_data, SeriesCache, Timespec},
+    util,
+    util::ListenerType,
+    util::Timestamp,
+};
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator_pb::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
-use prost_types::Timestamp;
 use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, sync::Arc};
 use tempfile::TempPath;
 use tokio::sync::mpsc;
@@ -44,15 +47,13 @@ pub enum EndpointType {
 }
 
 // TODO: keep internal error when mapping errors?
-// TODO: rearrange internal args for consistency with inner func
 async fn run_test(
-    series_id: String,
     test_name: String,
-    time: Timestamp,
+    data: &SeriesCache,
 ) -> Result<(String, util::Flag), CoordinatorError> {
     Ok((
         test_name.clone(),
-        crate::runner::run_test(test_name, series_id, time)
+        crate::runner::run_test(test_name, data)
             .await
             .map_err(|_err| CoordinatorError::RunTestFail)?,
     ))
@@ -132,6 +133,15 @@ impl Coordinator for MyCoordinator {
 
         let req = request.into_inner();
 
+        let data = get_series_data(
+            req.series_id.clone(),
+            // TODO: get rid of this unwrap
+            Timespec::Single(Timestamp(req.time.as_ref().unwrap().seconds)),
+            2,
+        )
+        .await
+        .map_err(|err| Status::not_found(format!("data not found by data_switch: {}", err)))?;
+
         // TODO: remove this unwrap
         let subdag = self.construct_subdag(req.tests).unwrap();
 
@@ -144,9 +154,8 @@ impl Coordinator for MyCoordinator {
 
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(run_test(
-                    req.series_id.clone(),
                     subdag.nodes.get(leaf_index).unwrap().elem.clone(),
-                    req.time.as_ref().unwrap().clone(),
+                    &data,
                 ));
             }
 
@@ -182,9 +191,8 @@ impl Coordinator for MyCoordinator {
                     if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
                     {
                         test_futures.push(run_test(
-                            req.series_id.clone(),
                             subdag.nodes.get(*parent_index).unwrap().elem.clone(),
-                            req.time.as_ref().unwrap().clone(),
+                            &data,
                         ))
                     }
                 }

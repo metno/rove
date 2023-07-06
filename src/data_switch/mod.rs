@@ -38,6 +38,7 @@ pub async fn get_series_data(
         "frost" => frost::get_series_data(data_id, timespec, num_leading_points)
             .await
             .map_err(Error::Frost),
+        "test" => Ok(SeriesCache(Vec::new())),
         _ => Err(Error::InvalidDataSource(data_source.to_string())),
     }
 }
