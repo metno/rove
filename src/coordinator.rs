@@ -8,8 +8,9 @@ use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
 use coordinator_pb::{ValidateOneRequest, ValidateResponse};
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
-use std::{collections::HashMap, error::Error, fmt::Display, pin::Pin, sync::Arc};
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 use tempfile::TempPath;
+use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{
@@ -21,20 +22,12 @@ mod coordinator_pb {
     tonic::include_proto!("coordinator");
 }
 
-#[derive(Debug)]
-enum CoordinatorError {
-    InvalidLookup,
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum Error {
+    #[error("test name {0} not found in dag")]
+    TestNotInDag(String),
 }
-
-impl Display for CoordinatorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::InvalidLookup => write!(f, "requested test not found in dag"),
-        }
-    }
-}
-
-impl Error for CoordinatorError {}
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
@@ -54,10 +47,7 @@ impl MyCoordinator {
         MyCoordinator { dag }
     }
 
-    fn construct_subdag(
-        &self,
-        required_nodes: Vec<String>,
-    ) -> Result<Dag<String>, CoordinatorError> {
+    fn construct_subdag(&self, required_nodes: Vec<String>) -> Result<Dag<String>, Error> {
         fn add_descendants(
             dag: &Dag<String>,
             subdag: &mut Dag<String>,
@@ -89,7 +79,7 @@ impl MyCoordinator {
                 .dag
                 .index_lookup
                 .get(&required)
-                .ok_or(CoordinatorError::InvalidLookup)?;
+                .ok_or(Error::TestNotInDag(required))?;
 
             if !nodes_visited.contains_key(index) {
                 let subdag_index =

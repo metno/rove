@@ -1,9 +1,15 @@
 use crate::{data_switch::SeriesCache, util::Flag};
 use olympian::qc_tests::dip_check;
-use tonic::Status;
+use thiserror::Error;
 
-// TODO: get rid of Status
-pub async fn run_test(test: &str, data: &SeriesCache) -> Result<(String, Flag), Status> {
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum Error {
+    #[error("unknown test name {0}")]
+    InvalidTestName(String),
+}
+
+pub async fn run_test(test: &str, data: &SeriesCache) -> Result<(String, Flag), Error> {
     let flag: Flag = match test {
         "dip_check" => {
             // TODO: fix this mess... copying, unwrapping
@@ -23,7 +29,7 @@ pub async fn run_test(test: &str, data: &SeriesCache) -> Result<(String, Flag), 
             if test.starts_with("test") {
                 Flag::Inconclusive
             } else {
-                return Err(Status::invalid_argument("invalid test name"));
+                return Err(Error::InvalidTestName(test.to_string()));
             }
         }
     };
