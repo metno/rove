@@ -1,7 +1,12 @@
+use async_trait::async_trait;
 use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateOneRequest};
 use prost_types::Timestamp;
-use rove::{coordinator, util::ListenerType};
-use std::sync::Arc;
+use rove::{
+    coordinator, data_switch,
+    data_switch::{DataSource, DataSwitch, SeriesCache, Timespec},
+    util::ListenerType,
+};
+use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
 use tokio::net::{UnixListener, UnixStream};
 use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
@@ -16,11 +21,31 @@ mod coordinator_pb {
     tonic::include_proto!("coordinator");
 }
 
+#[derive(Debug)]
+struct TestDataSource;
+
+#[async_trait]
+impl DataSource for TestDataSource {
+    async fn get_series_data(
+        &self,
+        _data_id: &str,
+        _timespec: Timespec,
+        _num_leading_points: u8,
+    ) -> Result<SeriesCache, data_switch::Error> {
+        Ok(SeriesCache(Vec::new()))
+    }
+}
+
 #[tokio::test]
 async fn integration_test() {
     // tracing_subscriber::fmt()
     //     .with_max_level(tracing::Level::INFO)
     //     .init();
+
+    let data_switch = DataSwitch::new(HashMap::from([(
+        "test",
+        &TestDataSource as &dyn DataSource,
+    )]));
 
     let coordintor_socket = NamedTempFile::new().unwrap();
     let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
@@ -28,7 +53,7 @@ async fn integration_test() {
     let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
     let coordintor_stream = UnixListenerStream::new(coordintor_uds);
     let coordinator_future = async {
-        coordinator::start_server(ListenerType::UnixListener(coordintor_stream))
+        coordinator::start_server(ListenerType::UnixListener(coordintor_stream), data_switch)
             .await
             .unwrap();
     };

@@ -1,6 +1,13 @@
-use rove::{coordinator::start_server, util::ListenerType};
+use rove::{
+    coordinator::start_server,
+    data_switch::{frost, DataSource, DataSwitch},
+    util::ListenerType,
+};
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    start_server(ListenerType::Addr("[::1]:1337".parse()?)).await
+    let data_switch = DataSwitch::new(HashMap::from([("frost", &frost::Frost as &dyn DataSource)]));
+
+    start_server(ListenerType::Addr("[::1]:1337".parse()?), data_switch).await
 }

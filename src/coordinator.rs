@@ -1,5 +1,5 @@
 use crate::{
-    data_switch::{get_series_data, Timespec},
+    data_switch::{DataSwitch, Timespec},
     runner::run_test,
     util,
     util::{ListenerType, Timestamp},
@@ -38,13 +38,14 @@ pub enum EndpointType {
 }
 
 #[derive(Debug)]
-struct MyCoordinator {
+struct MyCoordinator<'a> {
     dag: Dag<String>,
+    data_switch: DataSwitch<'a>,
 }
 
-impl MyCoordinator {
-    fn new(dag: Dag<String>) -> Self {
-        MyCoordinator { dag }
+impl<'a> MyCoordinator<'a> {
+    fn new(dag: Dag<String>, data_switch: DataSwitch<'a>) -> Self {
+        MyCoordinator { dag, data_switch }
     }
 
     fn construct_subdag(&self, required_nodes: Vec<String>) -> Result<Dag<String>, Error> {
@@ -96,7 +97,7 @@ impl MyCoordinator {
 }
 
 #[tonic::async_trait]
-impl Coordinator for MyCoordinator {
+impl Coordinator for MyCoordinator<'static> {
     type ValidateOneStream = ResponseStream;
 
     #[tracing::instrument]
@@ -108,14 +109,16 @@ impl Coordinator for MyCoordinator {
 
         let req = request.into_inner();
 
-        let data = get_series_data(
-            req.series_id.as_str(),
-            // TODO: get rid of this unwrap
-            Timespec::Single(Timestamp(req.time.as_ref().unwrap().seconds)),
-            2,
-        )
-        .await
-        .map_err(|err| Status::not_found(format!("data not found by data_switch: {}", err)))?;
+        let data = self
+            .data_switch
+            .get_series_data(
+                req.series_id.as_str(),
+                // TODO: get rid of this unwrap
+                Timespec::Single(Timestamp(req.time.as_ref().unwrap().seconds)),
+                2,
+            )
+            .await
+            .map_err(|err| Status::not_found(format!("data not found by data_switch: {}", err)))?;
 
         // TODO: remove this unwrap
         // TODO: keep internal error when mapping errors?
@@ -198,14 +201,17 @@ fn construct_dag_placeholder() -> Dag<String> {
     dag
 }
 
-pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(
+    listener: ListenerType,
+    data_switch: DataSwitch<'static>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
             tracing_subscriber::fmt()
                 .with_max_level(tracing::Level::DEBUG)
                 .init();
 
-            let coordinator = MyCoordinator::new(construct_dag_placeholder());
+            let coordinator = MyCoordinator::new(construct_dag_placeholder(), data_switch);
 
             tracing::info!(message = "Starting server.", %addr);
 
@@ -216,7 +222,7 @@ pub async fn start_server(listener: ListenerType) -> Result<(), Box<dyn std::err
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let coordinator = MyCoordinator::new(construct_dag_placeholder());
+            let coordinator = MyCoordinator::new(construct_dag_placeholder(), data_switch);
 
             Server::builder()
                 .add_service(CoordinatorServer::new(coordinator))
@@ -234,7 +240,8 @@ mod tests {
 
     #[test]
     fn test_construct_subdag() {
-        let coordinator = MyCoordinator::new(construct_dag_placeholder());
+        let coordinator =
+            MyCoordinator::new(construct_dag_placeholder(), DataSwitch::new(HashMap::new()));
 
         assert_eq!(coordinator.dag.count_edges(), 6);
 

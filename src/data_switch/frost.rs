@@ -31,6 +31,7 @@ pub enum Error {
     MissingObs(String),
 }
 
+#[derive(Debug)]
 pub struct Frost;
 
 #[derive(Deserialize, Debug)]

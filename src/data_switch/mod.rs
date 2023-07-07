@@ -1,10 +1,11 @@
 use crate::util::Timestamp;
 use async_trait::async_trait;
 use olympian::points::Points;
+use std::collections::HashMap;
 use thiserror::Error;
 
 mod duration;
-mod frost;
+pub mod frost;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -27,7 +28,7 @@ pub enum Timespec {
 }
 
 #[async_trait]
-pub trait DataSource {
+pub trait DataSource: Sync + std::fmt::Debug {
     async fn get_series_data(
         &self,
         data_id: &str,
@@ -37,29 +38,35 @@ pub trait DataSource {
     // async fn get_spatial_data(&self, station_id: &str, timestamp: Timestamp);
 }
 
-pub async fn get_series_data(
-    series_id: &str,
-    timespec: Timespec,
-    num_leading_points: u8,
-) -> Result<SeriesCache, Error> {
-    let (data_source, data_id) = series_id
-        .split_once(':')
-        .ok_or_else(|| Error::InvalidSeriesId(series_id.to_string()))?;
-
-    let frost_src = frost::Frost;
-
-    // TODO: find a more flexible and elegant way of handling this
-    match data_source {
-        "frost" => {
-            frost_src
-                .get_series_data(data_id, timespec, num_leading_points)
-                .await
-        }
-        "test" => Ok(SeriesCache(Vec::new())),
-        _ => Err(Error::InvalidDataSource(data_source.to_string())),
-    }
+#[derive(Debug)]
+pub struct DataSwitch<'ds> {
+    sources: HashMap<&'ds str, &'ds dyn DataSource>,
 }
 
-pub fn get_spatial_data(_station_id: u32, _unix_timestamp: i64) -> Points {
-    todo!()
+impl<'ds> DataSwitch<'ds> {
+    pub fn new(sources: HashMap<&'ds str, &'ds dyn DataSource>) -> Self {
+        Self { sources }
+    }
+
+    pub async fn get_series_data(
+        &self,
+        series_id: &str,
+        timespec: Timespec,
+        num_leading_points: u8,
+    ) -> Result<SeriesCache, Error> {
+        // TODO: check these names still make sense
+        let (data_source_id, data_id) = series_id
+            .split_once(':')
+            .ok_or_else(|| Error::InvalidSeriesId(series_id.to_string()))?;
+
+        let data_source = self.sources[data_source_id];
+
+        data_source
+            .get_series_data(data_id, timespec, num_leading_points)
+            .await
+    }
+
+    pub fn get_spatial_data(_station_id: u32, _unix_timestamp: i64) -> Points {
+        todo!()
+    }
 }
