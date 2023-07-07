@@ -1,7 +1,9 @@
 use crate::{
-    data_switch::{duration, SeriesCache, Timespec},
+    data_switch,
+    data_switch::{duration, DataSource, SeriesCache, Timespec},
     util::Timestamp,
 };
+use async_trait::async_trait;
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use serde::{Deserialize, Deserializer};
@@ -28,6 +30,8 @@ pub enum Error {
     #[error("{0}")]
     MissingObs(String),
 }
+
+pub struct Frost;
 
 #[derive(Deserialize, Debug)]
 struct FrostObsBody {
@@ -129,7 +133,7 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
     Ok(obs)
 }
 
-pub async fn get_series_data(
+async fn get_series_data_inner(
     data_id: &str,
     timespec: Timespec,
     num_leading_points: u8,
@@ -209,4 +213,18 @@ pub async fn get_series_data(
             .map(|obs| (obs.time, obs.body.value))
             .collect(),
     ))
+}
+
+#[async_trait]
+impl DataSource for Frost {
+    async fn get_series_data(
+        &self,
+        data_id: &str,
+        timespec: Timespec,
+        num_leading_points: u8,
+    ) -> Result<SeriesCache, data_switch::Error> {
+        get_series_data_inner(data_id, timespec, num_leading_points)
+            .await
+            .map_err(data_switch::Error::Frost)
+    }
 }
