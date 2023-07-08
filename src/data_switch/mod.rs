@@ -59,7 +59,10 @@ impl<'ds> DataSwitch<'ds> {
             .split_once(':')
             .ok_or_else(|| Error::InvalidSeriesId(series_id.to_string()))?;
 
-        let data_source = self.sources[data_source_id];
+        let data_source = self
+            .sources
+            .get(data_source_id)
+            .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
             .get_series_data(data_id, timespec, num_leading_points)
