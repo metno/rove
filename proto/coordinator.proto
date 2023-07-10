@@ -6,29 +6,21 @@ import "util.proto";
 package coordinator;
 
 service Coordinator {
-  rpc ValidateOne (ValidateOneRequest) returns (stream ValidateResponse) {}
-  /* rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateResponse) {} */
+  rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateResponse) {}
   /* rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateResponse) {} */
-}
-
-// test one piece of data
-message ValidateOneRequest {
-  // resource locator of the form <data source>:<source-specific identifier>
-  // e.g. oda:123456 where oda is a data source known to the system, and 123456
-  // is a timeseries ID in oda
-  string series_id = 1;
-  google.protobuf.Timestamp time = 2;
-  // list of the names of tests to be run on the data
-  repeated string tests = 3;
 }
 
 // tests a time series between start_time and end_time
 message ValidateSeriesRequest {
+  // resource locator of the form <data source>:<source-specific identifier>
+  // e.g. oda:123456 where oda is a data source known to the system, and 123456
+  // is a timeseries ID in oda
   string series_id = 1;
   // if not provided, the start of the time series will be used
   optional google.protobuf.Timestamp start_time = 2;
   // if not provided, the end of the time series will be used
   optional google.protobuf.Timestamp end_time = 3;
+  // list of the names of tests to be run on the data
   repeated string tests = 4;
 }
 
