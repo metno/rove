@@ -15,6 +15,7 @@ pub mod pb {
                     olympian::qc_tests::Flag::Inconclusive => Self::Inconclusive,
                     olympian::qc_tests::Flag::Invalid => Self::Invalid,
                     olympian::qc_tests::Flag::DataMissing => Self::DataMissing,
+                    olympian::qc_tests::Flag::Isolated => Self::Isolated,
                 }
             }
         }

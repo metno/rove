@@ -14,4 +14,5 @@ enum Flag { // WIP
   INCONCLUSIVE = 3;
   INVALID = 4;
   DATA_MISSING = 5;
+  ISOLATED = 6;
 }

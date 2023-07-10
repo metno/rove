@@ -17,29 +17,17 @@ pub enum Error {
     InvalidTestName(String),
 }
 
-// TODO: remove when dip takes the right args
-fn dip_wrapper(data: &[Option<f32>], high: f32, max: f32) -> olympian::qc_tests::Flag {
-    dip_check(
-        data.iter()
-            .map(|opt| opt.unwrap_or(0.))
-            .collect::<Vec<f32>>()
-            .try_into()
-            .unwrap(),
-        high,
-        max,
-    )
-}
-
 pub async fn run_test(test: &str, cache: &SeriesCache) -> Result<ValidateSeriesResponse, Error> {
     let flags: Vec<Flag> = match test {
         "dip_check" => {
             // TODO: remove unnecessary preceeding vals?
             // TODO: use actual test params
             // TODO: use par_iter?
+            // TODO: do something about that unwrap?
             cache
                 .data
                 .windows(3)
-                .map(|window| dip_wrapper(window, 2., 3.).into())
+                .map(|window| dip_check(window, 2., 3.).unwrap().into())
                 .collect()
         }
         _ => {
