@@ -29,6 +29,8 @@ pub enum Error {
     },
     #[error("{0}")]
     MissingObs(String),
+    #[error("{0}")]
+    Misalignment(String),
 }
 
 #[derive(Debug)]
@@ -45,7 +47,7 @@ struct FrostObsBody {
 struct FrostObs {
     body: FrostObsBody,
     #[serde(deserialize_with = "des_time")]
-    time: Timestamp,
+    time: DateTime<Utc>,
 }
 
 fn des_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
@@ -58,18 +60,16 @@ where
     s.parse().map_err(D::Error::custom)
 }
 
-fn des_time<'de, D>(deserializer: D) -> Result<Timestamp, D::Error>
+fn des_time<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
 where
     D: Deserializer<'de>,
     D::Error: serde::de::Error,
 {
     use serde::de::Error;
     let s: String = Deserialize::deserialize(deserializer)?;
-    Ok(Timestamp(
-        chrono::DateTime::parse_from_rfc3339(s.as_str())
-            .map_err(D::Error::custom)?
-            .timestamp(),
-    ))
+    Ok(chrono::DateTime::parse_from_rfc3339(s.as_str())
+        .map_err(D::Error::custom)?
+        .with_timezone(&Utc))
 }
 
 fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
@@ -146,7 +146,7 @@ async fn get_series_data_inner(
         .split_once('/')
         .ok_or(Error::InvalidDataId(data_id.to_string()))?;
 
-    let (start_time, end_time) = match timespec {
+    let (interval_start, interval_end) = match timespec {
         Timespec::Single(timestamp) => {
             let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
             (time, time)
@@ -181,9 +181,10 @@ async fn get_series_data_inner(
                 "time",
                 format!(
                     "{}/{}",
-                    (start_time - period * i32::from(num_leading_points))
+                    (interval_start - period * i32::from(num_leading_points))
                         .to_rfc3339_opts(SecondsFormat::Secs, true),
-                    (end_time + Duration::seconds(1)).to_rfc3339_opts(SecondsFormat::Secs, true)
+                    (interval_end + Duration::seconds(1))
+                        .to_rfc3339_opts(SecondsFormat::Secs, true)
                 )
                 .as_str(),
             ),
@@ -193,27 +194,75 @@ async fn get_series_data_inner(
         .json()
         .await?;
 
-    let obs: Vec<FrostObs> = extract_obs(resp)?;
+    let obses: Vec<FrostObs> = extract_obs(resp)?;
 
-    if obs.len() < num_leading_points as usize + 1 {
-        return Err(Error::MissingObs(format!(
-            "found {} obs, need at least {}",
-            obs.len(),
-            num_leading_points + 1,
-        )));
+    // TODO: send this part to rayon?
+
+    // TODO: preallocate?
+    // let ts_length = (end_time - first_obs_time) / period;
+    let mut data = Vec::new();
+
+    let mut curr_obs_time = interval_start - period * i32::from(num_leading_points);
+    let first_obs_time = obses
+        .first()
+        .ok_or(Error::MissingObs(
+            "obs array from frost is empty".to_string(),
+        ))?
+        .time;
+
+    // handle misalignment of interval_start with ts, and leading missing values
+    if curr_obs_time != first_obs_time {
+        if first_obs_time < curr_obs_time {
+            return Err(Error::Misalignment(
+                "the first obs returned by frost is outside the time range".to_string(),
+            ));
+        }
+
+        while first_obs_time >= curr_obs_time + period {
+            data.push(None);
+            curr_obs_time = curr_obs_time + period;
+        }
+
+        curr_obs_time = first_obs_time;
     }
 
-    if obs.last().unwrap().time.0 != end_time.timestamp() {
-        return Err(Error::MissingObs(
-            "final obs timestamp did not match input timestamp".to_string(),
-        ));
+    let num_preceding_nones = i32::try_from(data.len()).map_err(|_| {
+        Error::MissingObs("i32 overflow: too many missing obs at start".to_string())
+    })?;
+    let start_time = Timestamp((first_obs_time - period * num_preceding_nones).timestamp());
+
+    // insert obses into data, with Nones for gaps in the series
+    for obs in obses {
+        if curr_obs_time == obs.time {
+            data.push(Some(obs.body.value));
+            curr_obs_time = curr_obs_time + period;
+        } else {
+            while curr_obs_time < obs.time {
+                data.push(None);
+                curr_obs_time = curr_obs_time + period;
+            }
+            if curr_obs_time == obs.time {
+                data.push(Some(obs.body.value));
+                curr_obs_time = curr_obs_time + period;
+            } else {
+                return Err(Error::Misalignment(
+                    "obs misaligned with series".to_string(),
+                ));
+            }
+        }
     }
 
-    Ok(SeriesCache(
-        obs.into_iter()
-            .map(|obs| (obs.time, obs.body.value))
-            .collect(),
-    ))
+    // handle trailing missing values
+    while curr_obs_time < interval_end {
+        data.push(None);
+        curr_obs_time = curr_obs_time + period;
+    }
+
+    Ok(SeriesCache {
+        start_time,
+        period,
+        data,
+    })
 }
 
 #[async_trait]
