@@ -1,10 +1,14 @@
 use crate::{
     data_switch::{DataSwitch, Timerange},
-    runner, util,
-    util::{ListenerType, Timestamp},
+    runner,
+    util::{
+        pb::coordinator::{
+            coordinator_server::{Coordinator, CoordinatorServer},
+            ValidateSeriesRequest, ValidateSeriesResponse,
+        },
+        ListenerType, Timestamp,
+    },
 };
-use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
-use coordinator_pb::{ValidateResponse, ValidateSeriesRequest};
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
 use std::{collections::HashMap, pin::Pin, sync::Arc};
@@ -17,10 +21,6 @@ use tonic::{
     Request, Response, Status,
 };
 
-mod coordinator_pb {
-    tonic::include_proto!("coordinator");
-}
-
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
@@ -30,7 +30,7 @@ pub enum Error {
     // Runner(#[from] runner::Error),
 }
 
-type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
+type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, Status>> + Send>>;
 
 #[derive(Debug, Clone)]
 pub enum EndpointType {
@@ -157,12 +157,8 @@ impl Coordinator for MyCoordinator<'static> {
                 // need to either add error into ValidateResponse, or eliminate error
                 // by ensuring consistency between dag and runner
                 let unwrapped = res.unwrap();
-                let validate_response = ValidateResponse {
-                    series_id: req.series_id.clone(),
-                    time: req.time.clone(),
-                    test: unwrapped.0.clone(),
-                    flag: unwrapped.1.into(),
-                };
+                let test_name = unwrapped.test.clone();
+                let validate_response = unwrapped;
                 match tx.send(Ok(validate_response)).await {
                     Ok(_) => {
                         // item (server response) was queued to be send to client
@@ -173,7 +169,7 @@ impl Coordinator for MyCoordinator<'static> {
                     }
                 }
 
-                let completed_index = subdag.index_lookup.get(&unwrapped.0).unwrap();
+                let completed_index = subdag.index_lookup.get(test_name.as_str()).unwrap();
 
                 for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
                     let children_completed = children_completed_map
@@ -196,7 +192,7 @@ impl Coordinator for MyCoordinator<'static> {
 
         let output_stream = ReceiverStream::new(rx);
         Ok(Response::new(
-            Box::pin(output_stream) as Self::ValidateOneStream
+            Box::pin(output_stream) as Self::ValidateSeriesStream
         ))
     }
 }

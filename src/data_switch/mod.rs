@@ -56,7 +56,7 @@ impl<'ds> DataSwitch<'ds> {
     pub async fn get_series_data(
         &self,
         series_id: &str,
-        timespec: Timerange,
+        timerange: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error> {
         // TODO: check these names still make sense
@@ -70,7 +70,7 @@ impl<'ds> DataSwitch<'ds> {
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
-            .get_series_data(data_id, timespec, num_leading_points)
+            .get_series_data(data_id, timerange, num_leading_points)
             .await
     }
 

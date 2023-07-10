@@ -136,7 +136,7 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
 
 async fn get_series_data_inner(
     data_id: &str,
-    timespec: Timerange,
+    timerange: Timerange,
     num_leading_points: u8,
 ) -> Result<SeriesCache, Error> {
     // TODO: figure out how to share the client between rove reqs
@@ -146,16 +146,9 @@ async fn get_series_data_inner(
         .split_once('/')
         .ok_or(Error::InvalidDataId(data_id.to_string()))?;
 
-    let (interval_start, interval_end) = match timespec {
-        Timerange::Single(timestamp) => {
-            let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
-            (time, time)
-        }
-        Timerange::Range { start, end } => (
-            Utc.timestamp_opt(start.0, 0).unwrap(),
-            Utc.timestamp_opt(end.0, 0).unwrap(),
-        ),
-    };
+    // TODO: should these maybe just be passed in this way?
+    let interval_start = Utc.timestamp_opt(timerange.start.0, 0).unwrap();
+    let interval_end = Utc.timestamp_opt(timerange.end.0, 0).unwrap();
 
     let metadata_resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
@@ -270,10 +263,10 @@ impl DataSource for Frost {
     async fn get_series_data(
         &self,
         data_id: &str,
-        timespec: Timerange,
+        timerange: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        get_series_data_inner(data_id, timespec, num_leading_points)
+        get_series_data_inner(data_id, timerange, num_leading_points)
             .await
             .map_err(data_switch::Error::Frost)
     }
