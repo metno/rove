@@ -6,8 +6,8 @@ import "util.proto";
 package coordinator;
 
 service Coordinator {
-  rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateResponse) {}
-  /* rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateResponse) {} */
+  rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateSeriesResponse) {}
+  /* rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {} */
 }
 
 // tests a time series between start_time and end_time
@@ -35,11 +35,28 @@ message ValidateSpatialRequest {
   repeated string tests = 4;
 }
 
-message ValidateResponse {
-  string series_id = 1;
-  google.protobuf.Timestamp time = 2;
+message SeriesTestResult {
+  google.protobuf.Timestamp time = 1;
+  util.Flag flag = 2;
+}
+
+message ValidateSeriesResponse {
   // name of the test this flag is from
-  string test = 3;
-  // indicates the result of a test
-  util.Flag flag = 4;
+  string test = 1;
+  // results for each data point in the series, paired with timestamps to
+  // identify the point
+  repeated SeriesTestResult results = 2;
+}
+
+message SpatialTestResult {
+  util.GeoPoint location = 1;
+  util.Flag flag = 2;
+}
+
+message ValidateSpatialResponse {
+  // name of the test this flag is from
+  string test = 1;
+  // results for each data point in the series, paired with geopoints to
+  // identify the point
+  repeated SpatialTestResult results = 2;
 }

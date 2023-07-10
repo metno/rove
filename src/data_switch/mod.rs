@@ -27,9 +27,9 @@ pub struct SeriesCache {
     pub data: Vec<Option<f32>>,
 }
 
-pub enum Timespec {
-    Single(Timestamp),
-    Range { start: Timestamp, end: Timestamp },
+pub struct Timerange {
+    pub start: Timestamp,
+    pub end: Timestamp,
 }
 
 #[async_trait]
@@ -37,7 +37,7 @@ pub trait DataSource: Sync + std::fmt::Debug {
     async fn get_series_data(
         &self,
         data_id: &str,
-        timespec: Timespec,
+        timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error>;
     // async fn get_spatial_data(&self, station_id: &str, timestamp: Timestamp);
@@ -56,7 +56,7 @@ impl<'ds> DataSwitch<'ds> {
     pub async fn get_series_data(
         &self,
         series_id: &str,
-        timespec: Timespec,
+        timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error> {
         // TODO: check these names still make sense

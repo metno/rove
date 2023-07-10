@@ -1,6 +1,6 @@
 use crate::{
     data_switch,
-    data_switch::{duration, DataSource, SeriesCache, Timespec},
+    data_switch::{duration, DataSource, SeriesCache, Timerange},
     util::Timestamp,
 };
 use async_trait::async_trait;
@@ -136,7 +136,7 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
 
 async fn get_series_data_inner(
     data_id: &str,
-    timespec: Timespec,
+    timespec: Timerange,
     num_leading_points: u8,
 ) -> Result<SeriesCache, Error> {
     // TODO: figure out how to share the client between rove reqs
@@ -147,11 +147,11 @@ async fn get_series_data_inner(
         .ok_or(Error::InvalidDataId(data_id.to_string()))?;
 
     let (interval_start, interval_end) = match timespec {
-        Timespec::Single(timestamp) => {
+        Timerange::Single(timestamp) => {
             let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
             (time, time)
         }
-        Timespec::Range { start, end } => (
+        Timerange::Range { start, end } => (
             Utc.timestamp_opt(start.0, 0).unwrap(),
             Utc.timestamp_opt(end.0, 0).unwrap(),
         ),
@@ -270,7 +270,7 @@ impl DataSource for Frost {
     async fn get_series_data(
         &self,
         data_id: &str,
-        timespec: Timespec,
+        timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
         get_series_data_inner(data_id, timespec, num_leading_points)

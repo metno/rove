@@ -1,10 +1,10 @@
 use crate::{
-    data_switch::{DataSwitch, Timespec},
+    data_switch::{DataSwitch, Timerange},
     runner, util,
     util::{ListenerType, Timestamp},
 };
 use coordinator_pb::coordinator_server::{Coordinator, CoordinatorServer};
-use coordinator_pb::{ValidateOneRequest, ValidateResponse};
+use coordinator_pb::{ValidateResponse, ValidateSeriesRequest};
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
 use std::{collections::HashMap, pin::Pin, sync::Arc};
@@ -99,13 +99,13 @@ impl<'a> MyCoordinator<'a> {
 
 #[tonic::async_trait]
 impl Coordinator for MyCoordinator<'static> {
-    type ValidateOneStream = ResponseStream;
+    type ValidateSeriesStream = ResponseStream;
 
     #[tracing::instrument]
-    async fn validate_one(
+    async fn validate_series(
         &self,
-        request: Request<ValidateOneRequest>,
-    ) -> Result<Response<Self::ValidateOneStream>, Status> {
+        request: Request<ValidateSeriesRequest>,
+    ) -> Result<Response<Self::ValidateSeriesStream>, Status> {
         tracing::info!("Got a request: {:?}", request);
 
         let req = request.into_inner();
@@ -114,12 +114,20 @@ impl Coordinator for MyCoordinator<'static> {
             .data_switch
             .get_series_data(
                 req.series_id.as_str(),
-                Timespec::Single(Timestamp(
-                    req.time
-                        .as_ref()
-                        .ok_or(Status::invalid_argument("invalid timestamp"))?
-                        .seconds,
-                )),
+                Timerange {
+                    start: Timestamp(
+                        req.start_time
+                            .as_ref()
+                            .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
+                            .seconds,
+                    ),
+                    end: Timestamp(
+                        req.end_time
+                            .as_ref()
+                            .ok_or(Status::invalid_argument("invalid timestamp for end_time"))?
+                            .seconds,
+                    ),
+                },
                 2,
             )
             .await

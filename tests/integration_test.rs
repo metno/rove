@@ -3,7 +3,7 @@ use chronoutil::RelativeDuration;
 use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateOneRequest};
 use rove::{
     coordinator, data_switch,
-    data_switch::{DataSource, DataSwitch, SeriesCache, Timespec},
+    data_switch::{DataSource, DataSwitch, SeriesCache, Timerange},
     util::{ListenerType, Timestamp},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -29,7 +29,7 @@ impl DataSource for TestDataSource {
     async fn get_series_data(
         &self,
         _data_id: &str,
-        _timespec: Timespec,
+        _timespec: Timerange,
         _num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
         Ok(SeriesCache {
