@@ -9,14 +9,15 @@ pub enum Error {
     InvalidTestName(String),
 }
 
-pub async fn run_test(test: &str, data: &SeriesCache) -> Result<(String, Flag), Error> {
+pub async fn run_test(test: &str, cache: &SeriesCache) -> Result<(String, Flag), Error> {
     let flag: Flag = match test {
         "dip_check" => {
             // TODO: fix this mess... copying, unwrapping
             dip_check(
-                data.0
+                cache
+                    .data
                     .iter()
-                    .map(|(_, v)| *v)
+                    .map(|v| v.unwrap_or(0.))
                     .collect::<Vec<f32>>()
                     .try_into()
                     .unwrap(),

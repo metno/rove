@@ -1,10 +1,10 @@
 use async_trait::async_trait;
+use chronoutil::RelativeDuration;
 use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateOneRequest};
-use prost_types::Timestamp;
 use rove::{
     coordinator, data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, Timespec},
-    util::ListenerType,
+    util::{ListenerType, Timestamp},
 };
 use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
@@ -32,7 +32,11 @@ impl DataSource for TestDataSource {
         _timespec: Timespec,
         _num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        Ok(SeriesCache(Vec::new()))
+        Ok(SeriesCache {
+            start_time: Timestamp(0),
+            period: RelativeDuration::minutes(5),
+            data: Vec::new(),
+        })
     }
 }
 
@@ -73,7 +77,7 @@ async fn integration_test() {
             .validate_one(ValidateOneRequest {
                 series_id: String::from("test:1"),
                 tests: vec![String::from("test1")],
-                time: Some(Timestamp::default()),
+                time: Some(prost_types::Timestamp::default()),
             })
             .await
             .unwrap()

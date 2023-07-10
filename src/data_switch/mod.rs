@@ -1,5 +1,6 @@
 use crate::util::Timestamp;
 use async_trait::async_trait;
+use chronoutil::RelativeDuration;
 use olympian::points::Points;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -20,7 +21,11 @@ pub enum Error {
 }
 
 // TODO: move this to olympian?
-pub struct SeriesCache(pub Vec<(Timestamp, f32)>);
+pub struct SeriesCache {
+    pub start_time: Timestamp,
+    pub period: RelativeDuration,
+    pub data: Vec<Option<f32>>,
+}
 
 pub enum Timespec {
     Single(Timestamp),
