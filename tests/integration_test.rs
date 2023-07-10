@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
-use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateOneRequest};
+use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateSeriesRequest};
 use rove::{
     coordinator, data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, Timerange},
@@ -13,6 +13,7 @@ use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::Endpoint;
 use tower::service_fn;
 
+// TODO: remove these and use the includes from rove::util
 mod util {
     tonic::include_proto!("util");
 }
@@ -74,10 +75,11 @@ async fn integration_test() {
 
     let request_future = async {
         let mut stream = client
-            .validate_one(ValidateOneRequest {
+            .validate_series(ValidateSeriesRequest {
                 series_id: String::from("test:1"),
                 tests: vec![String::from("test1")],
-                time: Some(prost_types::Timestamp::default()),
+                start_time: Some(prost_types::Timestamp::default()),
+                end_time: Some(prost_types::Timestamp::default()),
             })
             .await
             .unwrap()
@@ -85,7 +87,11 @@ async fn integration_test() {
 
         let mut recv_count = 0;
         while let Some(recv) = stream.next().await {
-            assert_eq!(recv.unwrap().flag, util::Flag::Inconclusive as i32);
+            assert_eq!(
+                // TODO: improve
+                recv.unwrap().results.first().unwrap().flag,
+                util::Flag::Inconclusive as i32
+            );
             recv_count += 1;
         }
         assert_eq!(recv_count, 6);
