@@ -139,6 +139,7 @@ impl Coordinator for MyCoordinator<'static> {
 
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
+        // TODO: reduce max size of buffer based on num requested tests?
         let (tx, rx) = mpsc::channel(128);
         tokio::spawn(async move {
             let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();

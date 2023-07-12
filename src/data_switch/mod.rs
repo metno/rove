@@ -25,6 +25,7 @@ pub struct SeriesCache {
     pub start_time: Timestamp,
     pub period: RelativeDuration,
     pub data: Vec<Option<f32>>,
+    pub num_leading_points: u8,
 }
 
 pub struct Timerange {

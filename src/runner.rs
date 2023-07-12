@@ -19,14 +19,15 @@ pub enum Error {
 
 pub async fn run_test(test: &str, cache: &SeriesCache) -> Result<ValidateSeriesResponse, Error> {
     let flags: Vec<Flag> = match test {
+        // TODO: put these in a lookup table?
         "dip_check" => {
-            // TODO: remove unnecessary preceeding vals?
+            const LEADING_PER_RUN: u8 = 2;
+
             // TODO: use actual test params
             // TODO: use par_iter?
             // TODO: do something about that unwrap?
-            cache
-                .data
-                .windows(3)
+            cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
+                .windows((LEADING_PER_RUN + 1).into())
                 .map(|window| dip_check(window, 2., 3.).unwrap().into())
                 .collect()
         }
@@ -44,6 +45,7 @@ pub async fn run_test(test: &str, cache: &SeriesCache) -> Result<ValidateSeriesR
         Utc.timestamp_opt(cache.start_time.0, 0).unwrap(),
         cache.period,
     )
+    .skip(cache.num_leading_points.into())
     .zip(flags.into_iter())
     .map(|(time, flag)| SeriesTestResult {
         time: Some(prost_types::Timestamp {

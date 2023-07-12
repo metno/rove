@@ -31,12 +31,13 @@ impl DataSource for TestDataSource {
         &self,
         _data_id: &str,
         _timespec: Timerange,
-        _num_leading_points: u8,
+        num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
         Ok(SeriesCache {
             start_time: Timestamp(0),
             period: RelativeDuration::minutes(5),
             data: Vec::new(),
+            num_leading_points,
         })
     }
 }

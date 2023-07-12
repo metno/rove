@@ -207,6 +207,7 @@ fn json_to_series_cache(
         start_time,
         period,
         data,
+        num_leading_points,
     })
 }
 
