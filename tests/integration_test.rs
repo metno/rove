@@ -1,10 +1,15 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
-use coordinator_pb::{coordinator_client::CoordinatorClient, ValidateSeriesRequest};
 use rove::{
     coordinator, data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, Timerange},
-    util::{ListenerType, Timestamp},
+    util::{
+        pb::{
+            coordinator::{coordinator_client::CoordinatorClient, ValidateSeriesRequest},
+            util::Flag,
+        },
+        ListenerType, Timestamp,
+    },
 };
 use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
@@ -12,15 +17,6 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::Endpoint;
 use tower::service_fn;
-
-// TODO: remove these and use the includes from rove::util
-mod util {
-    tonic::include_proto!("util");
-}
-
-mod coordinator_pb {
-    tonic::include_proto!("coordinator");
-}
 
 #[derive(Debug)]
 struct TestDataSource;
@@ -91,7 +87,7 @@ async fn integration_test() {
             assert_eq!(
                 // TODO: improve
                 recv.unwrap().results.first().unwrap().flag,
-                util::Flag::Inconclusive as i32
+                Flag::Inconclusive as i32
             );
             recv_count += 1;
         }
