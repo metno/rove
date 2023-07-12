@@ -134,62 +134,14 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
     Ok(obs)
 }
 
-async fn get_series_data_inner(
-    data_id: &str,
-    timerange: Timerange,
+fn json_to_series_cache(
+    resp: serde_json::Value,
+    period: RelativeDuration,
     num_leading_points: u8,
+    interval_start: DateTime<Utc>,
+    interval_end: DateTime<Utc>,
 ) -> Result<SeriesCache, Error> {
-    // TODO: figure out how to share the client between rove reqs
-    let client = reqwest::Client::new();
-
-    let (station_id, element_id) = data_id
-        .split_once('/')
-        .ok_or(Error::InvalidDataId(data_id.to_string()))?;
-
-    // TODO: should these maybe just be passed in this way?
-    let interval_start = Utc.timestamp_opt(timerange.start.0, 0).unwrap();
-    let interval_end = Utc.timestamp_opt(timerange.end.0, 0).unwrap();
-
-    let metadata_resp: serde_json::Value = client
-        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
-        .query(&[
-            ("elementids", element_id),
-            ("stationids", station_id),
-            ("incobs", "false"),
-        ])
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    let period = extract_duration(metadata_resp)?;
-
-    let resp: serde_json::Value = client
-        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
-        .query(&[
-            ("elementids", element_id),
-            ("stationids", station_id),
-            ("incobs", "true"),
-            (
-                "time",
-                format!(
-                    "{}/{}",
-                    (interval_start - period * i32::from(num_leading_points))
-                        .to_rfc3339_opts(SecondsFormat::Secs, true),
-                    (interval_end + Duration::seconds(1))
-                        .to_rfc3339_opts(SecondsFormat::Secs, true)
-                )
-                .as_str(),
-            ),
-        ])
-        .send()
-        .await?
-        .json()
-        .await?;
-
     let obses: Vec<FrostObs> = extract_obs(resp)?;
-
-    // TODO: send this part to rayon?
 
     // TODO: preallocate?
     // let ts_length = (end_time - first_obs_time) / period;
@@ -256,6 +208,69 @@ async fn get_series_data_inner(
         period,
         data,
     })
+}
+
+async fn get_series_data_inner(
+    data_id: &str,
+    timerange: Timerange,
+    num_leading_points: u8,
+) -> Result<SeriesCache, Error> {
+    // TODO: figure out how to share the client between rove reqs
+    let client = reqwest::Client::new();
+
+    let (station_id, element_id) = data_id
+        .split_once('/')
+        .ok_or(Error::InvalidDataId(data_id.to_string()))?;
+
+    // TODO: should these maybe just be passed in this way?
+    let interval_start = Utc.timestamp_opt(timerange.start.0, 0).unwrap();
+    let interval_end = Utc.timestamp_opt(timerange.end.0, 0).unwrap();
+
+    let metadata_resp: serde_json::Value = client
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .query(&[
+            ("elementids", element_id),
+            ("stationids", station_id),
+            ("incobs", "false"),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let period = extract_duration(metadata_resp)?;
+
+    let resp: serde_json::Value = client
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .query(&[
+            ("elementids", element_id),
+            ("stationids", station_id),
+            ("incobs", "true"),
+            (
+                "time",
+                format!(
+                    "{}/{}",
+                    (interval_start - period * i32::from(num_leading_points))
+                        .to_rfc3339_opts(SecondsFormat::Secs, true),
+                    (interval_end + Duration::seconds(1))
+                        .to_rfc3339_opts(SecondsFormat::Secs, true)
+                )
+                .as_str(),
+            ),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    // TODO: send this part to rayon?
+    json_to_series_cache(
+        resp,
+        period,
+        num_leading_points,
+        interval_start,
+        interval_end,
+    )
 }
 
 #[async_trait]
