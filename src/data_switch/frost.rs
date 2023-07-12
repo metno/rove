@@ -286,3 +286,133 @@ impl DataSource for Frost {
             .map_err(data_switch::Error::Frost)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const RESP: &str = r#"
+{
+  "data": {
+    "tstype": "met.no/filter",
+    "tseries": [
+      {
+        "header": {
+          "id": {
+            "level": 0,
+            "parameterid": 211,
+            "sensor": 0,
+            "stationid": 18700
+          },
+          "extra": {
+            "element": {
+              "description": "Air temperature (default 2 m above ground), present value",
+              "id": "air_temperature",
+              "name": "Air temperature",
+              "unit": "degC"
+            },
+            "station": {
+              "location": [
+                {
+                  "from": "1931-01-01T00:00:00Z",
+                  "to": "1940-12-31T00:00:00Z",
+                  "value": {
+                    "elevation(masl/hs)": "85",
+                    "latitude": "59.939200",
+                    "longitude": "10.718600"
+                  }
+                },
+                {
+                  "from": "1941-01-01T00:00:00Z",
+                  "to": "9999-01-01T00:00:00Z",
+                  "value": {
+                    "elevation(masl/hs)": "94",
+                    "latitude": "59.942300",
+                    "longitude": "10.720000"
+                  }
+                }
+              ],
+              "shortname": "Oslo (Blindern)"
+            },
+            "timeseries": {
+              "geometry": {
+                "level": {
+                  "unit": "m",
+                  "value": "2"
+                }
+              },
+              "quality": {
+                "exposure": [
+                  {
+                    "from": "1931-01-01T06:00:00Z",
+                    "to": "1931-01-01T06:00:00Z",
+                    "value": "1"
+                  }
+                ],
+                "performance": [
+                  {
+                    "from": "1937-01-01T06:00:00Z",
+                    "to": "1937-01-01T06:00:00Z",
+                    "value": "unknown"
+                  }
+                ]
+              },
+              "timeoffset": "PT0H",
+              "timeresolution": "PT1H"
+            }
+          },
+          "available": {
+            "from": "1937-01-01T06:00:00Z"
+          }
+        },
+        "observations": [
+          {
+            "time": "2023-06-26T12:00:00Z",
+            "body": {
+              "qualitycode": "0",
+              "value": "27.3999996"
+            }
+          },
+          {
+            "time": "2023-06-26T13:00:00Z",
+            "body": {
+              "qualitycode": "0",
+              "value": "25.7999992"
+            }
+          },
+          {
+            "time": "2023-06-26T14:00:00Z",
+            "body": {
+              "qualitycode": "0",
+              "value": "26"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}"#;
+
+    #[test]
+    fn test_json_to_series_cache() {
+        let resp = serde_json::from_str(RESP).unwrap();
+
+        let series_cache = json_to_series_cache(
+            resp,
+            RelativeDuration::hours(1),
+            2,
+            Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            Utc.timestamp_opt(series_cache.start_time.0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0).unwrap(),
+        );
+        assert_eq!(
+            series_cache.data,
+            vec![Some(27.3999996), Some(25.7999992), Some(26.)]
+        );
+    }
+}
