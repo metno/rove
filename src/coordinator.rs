@@ -11,15 +11,11 @@ use crate::{
 };
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
-use std::{collections::HashMap, pin::Pin, sync::Arc};
-use tempfile::TempPath;
+use std::{collections::HashMap, pin::Pin};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
-use tonic::{
-    transport::{Endpoint, Server},
-    Request, Response, Status,
-};
+use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -31,12 +27,6 @@ pub enum Error {
 }
 
 type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, Status>> + Send>>;
-
-#[derive(Debug, Clone)]
-pub enum EndpointType {
-    Uri(Endpoint),
-    Socket(Arc<TempPath>),
-}
 
 #[derive(Debug)]
 struct MyCoordinator<'a> {
