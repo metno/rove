@@ -22,6 +22,7 @@ thiserror = "1.0.40"
 chrono = "0.4.26"
 chronoutil = "0.2.5"
 async-trait = "0.1.71"
+csv = "1.2.2"
 
 [build-dependencies]
 tonic-build = "0.7.2"
