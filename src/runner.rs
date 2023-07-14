@@ -10,7 +10,7 @@ use chronoutil::DateRule;
 use olympian::qc_tests::dip_check;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
     #[error("test name {0} not found in runner")]

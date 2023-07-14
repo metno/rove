@@ -30,6 +30,7 @@ type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, S
 
 #[derive(Debug)]
 struct MyCoordinator<'a> {
+    // TODO: the String here can probably be &'a or &'static str
     dag: Dag<String>,
     data_switch: DataSwitch<'a>,
 }
@@ -107,19 +108,13 @@ fn schedule_tests(
         }
 
         while let Some(res) = test_futures.next().await {
-            // TODO: remove this unwrap
-            // can't return error here because we're outside the main thread
-            // need to either add error into ValidateResponse, or eliminate error
-            // by ensuring consistency between dag and runner
-            // --
-            // later ingrid: actually we can just map the error to a status, then
-            // send that on the channel. Problem is, we still need to figure out
-            // what to do after, should we break the loop? If we consider a failed
-            // test to invalidate it's children, we should.
-            let unwrapped = res.unwrap();
-            let test_name = unwrapped.test.clone();
-            let validate_response = unwrapped;
-            match tx.send(Ok(validate_response)).await {
+            match tx
+                .send(
+                    res.clone()
+                        .map_err(|e| Status::aborted(format!("a test run failed: {}", e))),
+                )
+                .await
+            {
                 Ok(_) => {
                     // item (server response) was queued to be send to client
                 }
@@ -129,22 +124,29 @@ fn schedule_tests(
                 }
             }
 
-            let completed_index = subdag.index_lookup.get(test_name.as_str()).unwrap();
+            match res {
+                Ok(inner) => {
+                    let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
 
-            for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
-                let children_completed = children_completed_map
-                    .get(parent_index)
-                    .map(|x| x + 1)
-                    .unwrap_or(1);
+                    for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
+                        let children_completed = children_completed_map
+                            .get(parent_index)
+                            .map(|x| x + 1)
+                            .unwrap_or(1);
 
-                children_completed_map.insert(*parent_index, children_completed);
+                        children_completed_map.insert(*parent_index, children_completed);
 
-                if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len() {
-                    test_futures.push(runner::run_test(
-                        subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
-                        &data,
-                    ))
+                        if children_completed
+                            >= subdag.nodes.get(*parent_index).unwrap().children.len()
+                        {
+                            test_futures.push(runner::run_test(
+                                subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                                &data,
+                            ))
+                        }
+                    }
                 }
+                Err(_) => break,
             }
         }
     });
