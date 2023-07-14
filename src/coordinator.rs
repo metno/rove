@@ -94,8 +94,7 @@ fn schedule_tests(
 ) -> Receiver<Result<ValidateSeriesResponse, Status>> {
     // spawn and channel are required if you want handle "disconnect" functionality
     // the `out_stream` will not be polled after client disconnect
-    // TODO: reduce max size of buffer based on num requested tests?
-    let (tx, rx) = channel(128);
+    let (tx, rx) = channel(subdag.nodes.len());
     tokio::spawn(async move {
         let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
         let mut test_futures = FuturesUnordered::new();
@@ -166,6 +165,12 @@ impl Coordinator for MyCoordinator<'static> {
         tracing::info!("Got a request: {:?}", request);
 
         let req = request.into_inner();
+
+        if req.tests.is_empty() {
+            return Err(Status::invalid_argument(
+                "request must specify at least 1 test to be run",
+            ));
+        }
 
         let data = self
             .data_switch
