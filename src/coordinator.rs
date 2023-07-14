@@ -1,5 +1,5 @@
 use crate::{
-    data_switch::{DataSwitch, Timerange},
+    data_switch::{DataSwitch, SeriesCache, Timerange},
     runner,
     util::{
         pb::coordinator::{
@@ -13,7 +13,7 @@ use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
 use std::{collections::HashMap, pin::Pin};
 use thiserror::Error;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{channel, Receiver};
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -87,6 +87,71 @@ impl<'a> MyCoordinator<'a> {
     }
 }
 
+fn schedule_tests(
+    subdag: Dag<String>,
+    data: SeriesCache,
+) -> Receiver<Result<ValidateSeriesResponse, Status>> {
+    // spawn and channel are required if you want handle "disconnect" functionality
+    // the `out_stream` will not be polled after client disconnect
+    // TODO: reduce max size of buffer based on num requested tests?
+    let (tx, rx) = channel(128);
+    tokio::spawn(async move {
+        let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
+        let mut test_futures = FuturesUnordered::new();
+
+        for leaf_index in subdag.leaves.clone().into_iter() {
+            test_futures.push(runner::run_test(
+                subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
+                &data,
+            ));
+        }
+
+        while let Some(res) = test_futures.next().await {
+            // TODO: remove this unwrap
+            // can't return error here because we're outside the main thread
+            // need to either add error into ValidateResponse, or eliminate error
+            // by ensuring consistency between dag and runner
+            // --
+            // later ingrid: actually we can just map the error to a status, then
+            // send that on the channel. Problem is, we still need to figure out
+            // what to do after, should we break the loop? If we consider a failed
+            // test to invalidate it's children, we should.
+            let unwrapped = res.unwrap();
+            let test_name = unwrapped.test.clone();
+            let validate_response = unwrapped;
+            match tx.send(Ok(validate_response)).await {
+                Ok(_) => {
+                    // item (server response) was queued to be send to client
+                }
+                Err(_item) => {
+                    // output_stream was build from rx and both are dropped
+                    break;
+                }
+            }
+
+            let completed_index = subdag.index_lookup.get(test_name.as_str()).unwrap();
+
+            for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
+                let children_completed = children_completed_map
+                    .get(parent_index)
+                    .map(|x| x + 1)
+                    .unwrap_or(1);
+
+                children_completed_map.insert(*parent_index, children_completed);
+
+                if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len() {
+                    test_futures.push(runner::run_test(
+                        subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                        &data,
+                    ))
+                }
+            }
+        }
+    });
+
+    rx
+}
+
 #[tonic::async_trait]
 impl Coordinator for MyCoordinator<'static> {
     type ValidateSeriesStream = ResponseStream;
@@ -127,59 +192,7 @@ impl Coordinator for MyCoordinator<'static> {
             .construct_subdag(req.tests)
             .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
-        // spawn and channel are required if you want handle "disconnect" functionality
-        // the `out_stream` will not be polled after client disconnect
-        // TODO: reduce max size of buffer based on num requested tests?
-        let (tx, rx) = mpsc::channel(128);
-        tokio::spawn(async move {
-            let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
-            let mut test_futures = FuturesUnordered::new();
-
-            for leaf_index in subdag.leaves.clone().into_iter() {
-                test_futures.push(runner::run_test(
-                    subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
-                    &data,
-                ));
-            }
-
-            while let Some(res) = test_futures.next().await {
-                // TODO: remove this unwrap
-                // can't return error here because we're outside the main thread
-                // need to either add error into ValidateResponse, or eliminate error
-                // by ensuring consistency between dag and runner
-                let unwrapped = res.unwrap();
-                let test_name = unwrapped.test.clone();
-                let validate_response = unwrapped;
-                match tx.send(Ok(validate_response)).await {
-                    Ok(_) => {
-                        // item (server response) was queued to be send to client
-                    }
-                    Err(_item) => {
-                        // output_stream was build from rx and both are dropped
-                        break;
-                    }
-                }
-
-                let completed_index = subdag.index_lookup.get(test_name.as_str()).unwrap();
-
-                for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
-                    let children_completed = children_completed_map
-                        .get(parent_index)
-                        .map(|x| x + 1)
-                        .unwrap_or(1);
-
-                    children_completed_map.insert(*parent_index, children_completed);
-
-                    if children_completed >= subdag.nodes.get(*parent_index).unwrap().children.len()
-                    {
-                        test_futures.push(runner::run_test(
-                            subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
-                            &data,
-                        ))
-                    }
-                }
-            }
-        });
+        let rx = schedule_tests(subdag, data);
 
         let output_stream = ReceiverStream::new(rx);
         Ok(Response::new(
