@@ -1,6 +1,6 @@
 use crate::{
     data_switch,
-    data_switch::{duration, DataSource, SeriesCache, Timerange},
+    data_switch::{duration, DataSource, SeriesCache, SpatialCache, Timerange},
     util::Timestamp,
 };
 use async_trait::async_trait;
@@ -285,6 +285,14 @@ impl DataSource for Frost {
         get_series_data_inner(data_id, timerange, num_leading_points)
             .await
             .map_err(data_switch::Error::Frost)
+    }
+
+    async fn get_spatial_data(
+        &self,
+        _source_id: &str,
+        _timestamp: Timestamp,
+    ) -> Result<SpatialCache, data_switch::Error> {
+        todo!()
     }
 }
 

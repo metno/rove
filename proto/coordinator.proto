@@ -7,7 +7,7 @@ package coordinator;
 
 service Coordinator {
   rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateSeriesResponse) {}
-  /* rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {} */
+  // rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {}
 }
 
 // tests a time series between start_time and end_time
@@ -27,12 +27,15 @@ message ValidateSeriesRequest {
 // tests a time slice with optional list of data sources to use, and a list of
 // coordinates that define a polygon representing the area to be tested
 message ValidateSpatialRequest {
-  // if not provided, all available sources will be used
-  repeated string data_sources = 1;
-  // if not provided, the whole globe will be used
-  repeated util.GeoPoint polygon = 2;
+  // data source for data to quality control
+  string data_source = 1;
+  // extra data sources providing data to help qc the first source, but he data
+  // from these sources will not be qced themselves
+  repeated string backing_sources = 2;
   google.protobuf.Timestamp time = 3;
   repeated string tests = 4;
+  // if not provided, the whole globe will be used
+  repeated util.GeoPoint polygon = 5;
 }
 
 message SeriesTestResult {
@@ -49,6 +52,7 @@ message ValidateSeriesResponse {
 }
 
 message SpatialTestResult {
+  // TODO: maybe this should contain the series ID?
   util.GeoPoint location = 1;
   util.Flag flag = 2;
 }
