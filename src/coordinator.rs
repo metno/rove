@@ -1,10 +1,11 @@
 use crate::{
-    data_switch::{DataSwitch, SeriesCache, Timerange},
+    data_switch::{DataSwitch, SeriesCache, SpatialCache, Timerange},
     runner,
     util::{
         pb::coordinator::{
             coordinator_server::{Coordinator, CoordinatorServer},
-            ValidateSeriesRequest, ValidateSeriesResponse,
+            ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
+            ValidateSpatialResponse,
         },
         ListenerType, Timestamp,
     },
@@ -26,11 +27,15 @@ pub enum Error {
     // Runner(#[from] runner::Error),
 }
 
-type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, Status>> + Send>>;
+type SeriesResponseStream =
+    Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, Status>> + Send>>;
+type SpatialResponseStream =
+    Pin<Box<dyn Stream<Item = Result<ValidateSpatialResponse, Status>> + Send>>;
 
 #[derive(Debug)]
 struct MyCoordinator<'a> {
     // TODO: the String here can probably be &'a or &'static str
+    // TODO: separate DAGs for series and spatial tests?
     dag: Dag<String>,
     data_switch: DataSwitch<'a>,
 }
@@ -88,7 +93,7 @@ impl<'a> MyCoordinator<'a> {
     }
 }
 
-fn schedule_tests(
+fn schedule_tests_series(
     subdag: Dag<String>,
     data: SeriesCache,
 ) -> Receiver<Result<ValidateSeriesResponse, Status>> {
@@ -153,9 +158,77 @@ fn schedule_tests(
     rx
 }
 
+// sad about the amount of repetition here... perhaps we can do better once async
+// closures drop?
+fn schedule_tests_spatial(
+    subdag: Dag<String>,
+    data: SpatialCache,
+) -> Receiver<Result<ValidateSpatialResponse, Status>> {
+    // spawn and channel are required if you want handle "disconnect" functionality
+    // the `out_stream` will not be polled after client disconnect
+    let (tx, rx) = channel(subdag.nodes.len());
+    tokio::spawn(async move {
+        let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
+        let mut test_futures = FuturesUnordered::new();
+
+        for leaf_index in subdag.leaves.clone().into_iter() {
+            test_futures.push(runner::run_test_spatial(
+                subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
+                &data,
+            ));
+        }
+
+        while let Some(res) = test_futures.next().await {
+            match tx
+                .send(
+                    res.clone()
+                        .map_err(|e| Status::aborted(format!("a test run failed: {}", e))),
+                )
+                .await
+            {
+                Ok(_) => {
+                    // item (server response) was queued to be send to client
+                }
+                Err(_item) => {
+                    // output_stream was build from rx and both are dropped
+                    break;
+                }
+            }
+
+            match res {
+                Ok(inner) => {
+                    let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
+
+                    for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
+                        let children_completed = children_completed_map
+                            .get(parent_index)
+                            .map(|x| x + 1)
+                            .unwrap_or(1);
+
+                        children_completed_map.insert(*parent_index, children_completed);
+
+                        if children_completed
+                            >= subdag.nodes.get(*parent_index).unwrap().children.len()
+                        {
+                            test_futures.push(runner::run_test_spatial(
+                                subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                                &data,
+                            ))
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    rx
+}
+
 #[tonic::async_trait]
 impl Coordinator for MyCoordinator<'static> {
-    type ValidateSeriesStream = ResponseStream;
+    type ValidateSeriesStream = SeriesResponseStream;
+    type ValidateSpatialStream = SpatialResponseStream;
 
     #[tracing::instrument]
     async fn validate_series(
@@ -199,11 +272,52 @@ impl Coordinator for MyCoordinator<'static> {
             .construct_subdag(req.tests)
             .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
-        let rx = schedule_tests(subdag, data);
+        let rx = schedule_tests_series(subdag, data);
 
         let output_stream = ReceiverStream::new(rx);
         Ok(Response::new(
             Box::pin(output_stream) as Self::ValidateSeriesStream
+        ))
+    }
+
+    #[tracing::instrument]
+    async fn validate_spatial(
+        &self,
+        request: Request<ValidateSpatialRequest>,
+    ) -> Result<Response<Self::ValidateSpatialStream>, Status> {
+        tracing::info!("Got a request: {:?}", request);
+
+        let req = request.into_inner();
+
+        if req.tests.is_empty() {
+            return Err(Status::invalid_argument(
+                "request must specify at least 1 test to be run",
+            ));
+        }
+
+        let data = self
+            .data_switch
+            .get_spatial_data(
+                req.data_source.as_str(),
+                Timestamp(
+                    req.time
+                        .as_ref()
+                        .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
+                        .seconds,
+                ),
+            )
+            .await
+            .map_err(|e| Status::not_found(format!("data not found by data_switch: {}", e)))?;
+
+        let subdag = self
+            .construct_subdag(req.tests)
+            .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
+
+        let rx = schedule_tests_spatial(subdag, data);
+
+        let output_stream = ReceiverStream::new(rx);
+        Ok(Response::new(
+            Box::pin(output_stream) as Self::ValidateSpatialStream
         ))
     }
 }

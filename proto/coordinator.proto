@@ -7,7 +7,7 @@ package coordinator;
 
 service Coordinator {
   rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateSeriesResponse) {}
-  // rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {}
+  rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {}
 }
 
 // tests a time series between start_time and end_time
