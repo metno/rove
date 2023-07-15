@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use rove::{
     coordinator, data_switch,
-    data_switch::{DataSource, DataSwitch, SeriesCache, Timerange},
+    data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange},
     util::{
         pb::{
             coordinator::{coordinator_client::CoordinatorClient, ValidateSeriesRequest},
@@ -35,6 +35,14 @@ impl DataSource for TestDataSource {
             data: Vec::new(),
             num_leading_points,
         })
+    }
+
+    async fn get_spatial_data(
+        &self,
+        _source_id: &str,
+        _timestamp: Timestamp,
+    ) -> Result<SpatialCache, data_switch::Error> {
+        unimplemented!()
     }
 }
 

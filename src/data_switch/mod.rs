@@ -28,6 +28,10 @@ pub struct SeriesCache {
     pub num_leading_points: u8,
 }
 
+pub struct SpatialCache {
+    pub data: Points,
+}
+
 pub struct Timerange {
     pub start: Timestamp,
     pub end: Timestamp,
@@ -41,7 +45,11 @@ pub trait DataSource: Sync + std::fmt::Debug {
         timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error>;
-    // async fn get_spatial_data(&self, station_id: &str, timestamp: Timestamp);
+    async fn get_spatial_data(
+        &self,
+        source_id: &str,
+        timestamp: Timestamp,
+    ) -> Result<SpatialCache, Error>;
 }
 
 #[derive(Debug)]
@@ -75,7 +83,17 @@ impl<'ds> DataSwitch<'ds> {
             .await
     }
 
-    pub fn get_spatial_data(_station_id: u32, _unix_timestamp: i64) -> Points {
-        todo!()
+    // TODO: handle backing sources
+    pub async fn get_spatial_data(
+        &self,
+        source_id: &str,
+        timestamp: Timestamp,
+    ) -> Result<SpatialCache, Error> {
+        let data_source = self
+            .sources
+            .get(source_id)
+            .ok_or_else(|| Error::InvalidDataSource(source_id.to_string()))?;
+
+        data_source.get_spatial_data(source_id, timestamp).await
     }
 }
