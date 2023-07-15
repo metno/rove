@@ -1,8 +1,10 @@
 use crate::{
-    data_switch::SeriesCache,
-    util::{
-        pb::coordinator::{SeriesTestResult, ValidateSeriesResponse},
-        pb::util::Flag,
+    data_switch::{SeriesCache, SpatialCache},
+    util::pb::{
+        coordinator::{
+            SeriesTestResult, SpatialTestResult, ValidateSeriesResponse, ValidateSpatialResponse,
+        },
+        util::{Flag, GeoPoint},
     },
 };
 use chrono::prelude::*;
@@ -17,7 +19,10 @@ pub enum Error {
     InvalidTestName(String),
 }
 
-pub async fn run_test(test: &str, cache: &SeriesCache) -> Result<ValidateSeriesResponse, Error> {
+pub async fn run_test_series(
+    test: &str,
+    cache: &SeriesCache,
+) -> Result<ValidateSeriesResponse, Error> {
     let flags: Vec<Flag> = match test {
         // TODO: put these in a lookup table?
         "dip_check" => {
@@ -57,6 +62,47 @@ pub async fn run_test(test: &str, cache: &SeriesCache) -> Result<ValidateSeriesR
     .collect();
 
     Ok(ValidateSeriesResponse {
+        test: test.to_string(),
+        results,
+    })
+}
+
+#[allow(clippy::match_single_binding)]
+pub async fn run_test_spatial(
+    test: &str,
+    cache: &SpatialCache,
+) -> Result<ValidateSpatialResponse, Error> {
+    let flags: Vec<Flag> = match test {
+        _ => {
+            if test.starts_with("test") {
+                vec![Flag::Inconclusive]
+            } else {
+                // TODO: have more specific error for spatial vs series here?
+                return Err(Error::InvalidTestName(test.to_string()));
+            }
+        }
+    };
+
+    let results = cache
+        .data
+        .lats
+        // TODO: if lats and lons in points were in 1 vec, we could do into_iter,
+        // and remove one of the zips
+        .iter()
+        .zip(cache.data.lons.iter())
+        .map(|(lat, lon)| GeoPoint {
+            lat: *lat,
+            lon: *lon,
+        })
+        .zip(flags.into_iter())
+        .map(|(location, flag)| SpatialTestResult {
+            // TODO: get to the bottom of exactly why the Some is needed
+            location: Some(location),
+            flag: flag.into(),
+        })
+        .collect();
+
+    Ok(ValidateSpatialResponse {
         test: test.to_string(),
         results,
     })

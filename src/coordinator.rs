@@ -100,7 +100,7 @@ fn schedule_tests(
         let mut test_futures = FuturesUnordered::new();
 
         for leaf_index in subdag.leaves.clone().into_iter() {
-            test_futures.push(runner::run_test(
+            test_futures.push(runner::run_test_series(
                 subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
                 &data,
             ));
@@ -138,7 +138,7 @@ fn schedule_tests(
                         if children_completed
                             >= subdag.nodes.get(*parent_index).unwrap().children.len()
                         {
-                            test_futures.push(runner::run_test(
+                            test_futures.push(runner::run_test_series(
                                 subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
                                 &data,
                             ))
