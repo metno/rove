@@ -1,32 +1,5 @@
-[package]
-name = "rove"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-tonic = "0.7.2"
-tokio = { version = "1.18.2", features = ["full"] }
-prost = "0.10.4"
-prost-types = "0.10"
-# dagmar = { path = "../dagmar" }
-dagmar = { git = "https://github.com/intarga/dagmar" }
-olympian = { git = "https://github.com/intarga/olympian" }
-tracing = "0.1.16"
-tracing-futures = "0.2"
-tracing-subscriber = { version = "0.3", features = ["tracing-log"] }
-reqwest = { version = "0.11", features = ["json"] }
-futures = "0.3.21"
-tokio-stream = { version = "0.1.8", features = ["net"] }
-tempfile = "3.3.0"
-tower = { version = "0.4" }
-serde_json = "1.0.96"
-serde = { version = "1.0.164", features = ["derive"] }
-thiserror = "1.0.40"
-chrono = "0.4.26"
-chronoutil = "0.2.5"
-async-trait = "0.1.71"
-
-[build-dependencies]
-tonic-build = "0.7.2"
+members = [
+  "rove",
+]
