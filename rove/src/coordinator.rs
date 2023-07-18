@@ -1,21 +1,21 @@
 use crate::{
-    data_switch::{DataSwitch, SeriesCache, SpatialCache, Timerange},
-    runner,
-    util::{
-        pb::coordinator::{
-            coordinator_server::{Coordinator, CoordinatorServer},
-            ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
-            ValidateSpatialResponse,
-        },
-        ListenerType, Timestamp,
+    data_switch::{DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
+    pb::coordinator::{
+        coordinator_server::{Coordinator, CoordinatorServer},
+        ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
+        ValidateSpatialResponse,
     },
+    runner,
 };
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
-use std::{collections::HashMap, pin::Pin};
+use std::{collections::HashMap, net::SocketAddr, pin::Pin};
 use thiserror::Error;
 use tokio::sync::mpsc::{channel, Receiver};
-use tokio_stream::{wrappers::ReceiverStream, StreamExt};
+use tokio_stream::{
+    wrappers::{ReceiverStream, UnixListenerStream},
+    StreamExt,
+};
 use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Error, Debug)]
@@ -31,6 +31,11 @@ type SeriesResponseStream =
     Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, Status>> + Send>>;
 type SpatialResponseStream =
     Pin<Box<dyn Stream<Item = Result<ValidateSpatialResponse, Status>> + Send>>;
+
+pub enum ListenerType {
+    Addr(SocketAddr),
+    UnixListener(UnixListenerStream),
+}
 
 #[derive(Debug)]
 struct MyCoordinator<'a> {

@@ -1,4 +1,3 @@
-use crate::util::Timestamp;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::points::Points;
@@ -17,6 +16,15 @@ pub enum Error {
     CatchAll(String),
 }
 
+/// Unix timestamp, inner i64 is seconds since unix epoch
+#[derive(Debug)]
+pub struct Timestamp(pub i64);
+
+pub struct Timerange {
+    pub start: Timestamp,
+    pub end: Timestamp,
+}
+
 // TODO: move this to olympian?
 pub struct SeriesCache {
     pub start_time: Timestamp,
@@ -27,11 +35,6 @@ pub struct SeriesCache {
 
 pub struct SpatialCache {
     pub data: Points,
-}
-
-pub struct Timerange {
-    pub start: Timestamp,
-    pub end: Timestamp,
 }
 
 #[async_trait]

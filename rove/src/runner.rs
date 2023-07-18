@@ -1,6 +1,6 @@
 use crate::{
     data_switch::{SeriesCache, SpatialCache},
-    util::pb::{
+    pb::{
         coordinator::{
             SeriesTestResult, SpatialTestResult, ValidateSeriesResponse, ValidateSpatialResponse,
         },

@@ -1,10 +1,7 @@
 use crate::{duration, Error, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
-use rove::{
-    data_switch::{SeriesCache, Timerange},
-    util::Timestamp,
-};
+use rove::data_switch::{SeriesCache, Timerange, Timestamp};
 
 fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
     let time_resolution = metadata_resp

@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataSource, SeriesCache, SpatialCache, Timerange},
-    util::Timestamp,
+    data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;

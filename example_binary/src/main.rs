@@ -1,8 +1,7 @@
 use frost::Frost;
 use rove::{
-    coordinator::start_server,
+    coordinator::{start_server, ListenerType},
     data_switch::{DataSource, DataSwitch},
-    util::ListenerType,
 };
 use std::collections::HashMap;
 

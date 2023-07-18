@@ -1,14 +1,12 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use rove::{
-    coordinator, data_switch,
-    data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange},
-    util::{
-        pb::{
-            coordinator::{coordinator_client::CoordinatorClient, ValidateSeriesRequest},
-            util::Flag,
-        },
-        ListenerType, Timestamp,
+    coordinator::{start_server, ListenerType},
+    data_switch,
+    data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
+    pb::{
+        coordinator::{coordinator_client::CoordinatorClient, ValidateSeriesRequest},
+        util::Flag,
     },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -63,7 +61,7 @@ async fn integration_test() {
     let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
     let coordintor_stream = UnixListenerStream::new(coordintor_uds);
     let coordinator_future = async {
-        coordinator::start_server(ListenerType::UnixListener(coordintor_stream), data_switch)
+        start_server(ListenerType::UnixListener(coordintor_stream), data_switch)
             .await
             .unwrap();
     };
