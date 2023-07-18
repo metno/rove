@@ -1,12 +1,8 @@
-use crate::util::Timestamp;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::points::Points;
 use std::collections::HashMap;
 use thiserror::Error;
-
-mod duration;
-pub mod frost;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -16,8 +12,17 @@ pub enum Error {
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
     // TODO: remove this and provide proper errors to map to
-    #[error("frost connector failed")]
-    Frost(#[from] frost::Error),
+    #[error("connector failed: {0}")]
+    CatchAll(String),
+}
+
+/// Unix timestamp, inner i64 is seconds since unix epoch
+#[derive(Debug)]
+pub struct Timestamp(pub i64);
+
+pub struct Timerange {
+    pub start: Timestamp,
+    pub end: Timestamp,
 }
 
 // TODO: move this to olympian?
@@ -30,11 +35,6 @@ pub struct SeriesCache {
 
 pub struct SpatialCache {
     pub data: Points,
-}
-
-pub struct Timerange {
-    pub start: Timestamp,
-    pub end: Timestamp,
 }
 
 #[async_trait]

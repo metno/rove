@@ -1,7 +1,7 @@
-use std::net::SocketAddr;
-use tokio_stream::wrappers::UnixListenerStream;
+pub mod coordinator;
+pub mod data_switch;
+mod runner;
 
-// TODO: reconsider this proto mess?
 pub mod pb {
     pub mod util {
         tonic::include_proto!("util");
@@ -25,12 +25,3 @@ pub mod pb {
         tonic::include_proto!("coordinator");
     }
 }
-
-pub enum ListenerType {
-    Addr(SocketAddr),
-    UnixListener(UnixListenerStream),
-}
-
-/// Unix timestamp, inner i64 is seconds since unix epoch
-#[derive(Debug)]
-pub struct Timestamp(pub i64);
