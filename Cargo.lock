@@ -1576,9 +1576,6 @@ dependencies = [
  "olympian",
  "prost",
  "prost-types",
- "reqwest",
- "serde",
- "serde_json",
  "tempfile",
  "thiserror",
  "tokio",
@@ -1587,7 +1584,6 @@ dependencies = [
  "tonic-build",
  "tower",
  "tracing",
- "tracing-futures",
  "tracing-subscriber",
 ]
 
