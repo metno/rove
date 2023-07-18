@@ -2,5 +2,6 @@
 
 members = [
   "rove",
+  "frost",
   "example_binary"
 ]

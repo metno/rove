@@ -5,9 +5,6 @@ use olympian::points::Points;
 use std::collections::HashMap;
 use thiserror::Error;
 
-mod duration;
-pub mod frost;
-
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
@@ -16,8 +13,8 @@ pub enum Error {
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
     // TODO: remove this and provide proper errors to map to
-    #[error("frost connector failed")]
-    Frost(#[from] frost::Error),
+    #[error("connector failed: {0}")]
+    CatchAll(String),
 }
 
 // TODO: move this to olympian?

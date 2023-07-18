@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 rove = { path = "../rove" }
 tokio = { version = "1.18.2", features = ["full"] }
+frost = { path = "../frost" }

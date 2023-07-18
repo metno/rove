@@ -1,13 +1,15 @@
-use crate::{
-    data_switch,
-    data_switch::{duration, DataSource, SeriesCache, SpatialCache, Timerange},
-    util::Timestamp,
-};
 use async_trait::async_trait;
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
+use rove::{
+    data_switch,
+    data_switch::{DataSource, SeriesCache, SpatialCache, Timerange},
+    util::Timestamp,
+};
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
+
+mod duration;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -284,7 +286,7 @@ impl DataSource for Frost {
     ) -> Result<SeriesCache, data_switch::Error> {
         get_series_data_inner(data_id, timerange, num_leading_points)
             .await
-            .map_err(data_switch::Error::Frost)
+            .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
     }
 
     async fn get_spatial_data(
