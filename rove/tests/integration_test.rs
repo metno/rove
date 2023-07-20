@@ -37,7 +37,6 @@ impl DataSource for TestDataSource {
 
     async fn get_spatial_data(
         &self,
-        _source_id: &str,
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         unimplemented!()

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
-use olympian::points::Points;
+use olympian::points::{CoordinateType, Points};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -11,6 +11,14 @@ pub enum Error {
     InvalidSeriesId(String),
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
+    #[error("io error")]
+    Io(#[from] std::io::Error),
+    #[error("this data source does not offer series data: {0}")]
+    SeriesUnimplemented(String),
+    #[error("this data source does not offer spatial data: {0}")]
+    SpatialUnimplemented(String),
+    #[error("tokio task failure")]
+    JoinError(#[from] tokio::task::JoinError),
     // TODO: remove this and provide proper errors to map to
     #[error("connector failed: {0}")]
     CatchAll(String),
@@ -34,7 +42,20 @@ pub struct SeriesCache {
 }
 
 pub struct SpatialCache {
-    pub data: Points,
+    pub rtree: Points,
+    pub data: Vec<f32>,
+}
+
+impl SpatialCache {
+    pub fn new(lats: Vec<f32>, lons: Vec<f32>, elevs: Vec<f32>, values: Vec<f32>) -> Self {
+        // TODO: ensure vecs have same size
+        // TODO: figure out what to do about lafs and ctype
+        let n = values.len();
+        Self {
+            rtree: Points::from_latlons(lats, lons, elevs, vec![0.; n], CoordinateType::Cartesian),
+            data: values,
+        }
+    }
 }
 
 #[async_trait]
@@ -45,11 +66,9 @@ pub trait DataSource: Sync + std::fmt::Debug {
         timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error>;
-    async fn get_spatial_data(
-        &self,
-        source_id: &str,
-        timestamp: Timestamp,
-    ) -> Result<SpatialCache, Error>;
+
+    // TODO: add a str param for extra specification?
+    async fn get_spatial_data(&self, timestamp: Timestamp) -> Result<SpatialCache, Error>;
 }
 
 #[derive(Debug)]
@@ -94,6 +113,6 @@ impl<'ds> DataSwitch<'ds> {
             .get(source_id)
             .ok_or_else(|| Error::InvalidDataSource(source_id.to_string()))?;
 
-        data_source.get_spatial_data(source_id, timestamp).await
+        data_source.get_spatial_data(timestamp).await
     }
 }

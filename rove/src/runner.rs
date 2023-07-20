@@ -84,12 +84,12 @@ pub async fn run_test_spatial(
     };
 
     let results = cache
-        .data
+        .rtree
         .lats
         // TODO: if lats and lons in points were in 1 vec, we could do into_iter,
         // and remove one of the zips
         .iter()
-        .zip(cache.data.lons.iter())
+        .zip(cache.rtree.lons.iter())
         .map(|(lat, lon)| GeoPoint {
             lat: *lat,
             lon: *lon,
