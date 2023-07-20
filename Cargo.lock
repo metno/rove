@@ -1082,6 +1082,7 @@ dependencies = [
  "csv",
  "rove",
  "serde",
+ "tokio",
 ]
 
 [[package]]

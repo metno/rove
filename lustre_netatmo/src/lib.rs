@@ -70,8 +70,9 @@ impl DataSource for LustreNetatmo {
     }
 
     async fn get_spatial_data(&self, time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
-        // TODO: spawn this in a blocking tokio thread
-        read_netatmo(time)
+        tokio::task::spawn_blocking(move || read_netatmo(time))
+            .await
+            .unwrap()
     }
 }
 
