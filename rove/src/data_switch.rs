@@ -45,11 +45,9 @@ pub trait DataSource: Sync + std::fmt::Debug {
         timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error>;
-    async fn get_spatial_data(
-        &self,
-        source_id: &str,
-        timestamp: Timestamp,
-    ) -> Result<SpatialCache, Error>;
+
+    // TODO: add a str param for extra specification?
+    async fn get_spatial_data(&self, timestamp: Timestamp) -> Result<SpatialCache, Error>;
 }
 
 #[derive(Debug)]
@@ -94,6 +92,6 @@ impl<'ds> DataSwitch<'ds> {
             .get(source_id)
             .ok_or_else(|| Error::InvalidDataSource(source_id.to_string()))?;
 
-        data_source.get_spatial_data(source_id, timestamp).await
+        data_source.get_spatial_data(timestamp).await
     }
 }
