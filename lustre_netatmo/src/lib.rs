@@ -9,7 +9,7 @@ use std::fs::File;
 #[derive(Debug)]
 pub struct LustreNetatmo;
 
-fn read_netatmo(time: Timestamp) {
+fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
     let time = Utc.timestamp_opt(time.0, 0).unwrap();
 
     // TODO: assert minute and second are both 0
@@ -23,6 +23,9 @@ fn read_netatmo(time: Timestamp) {
         let record = record_res.unwrap();
         println!("{:?}", record);
     }
+
+    // TODO: actually populate these vecs
+    Ok(SpatialCache::new(vec![], vec![], vec![], vec![]))
 }
 
 #[async_trait]
@@ -38,9 +41,8 @@ impl DataSource for LustreNetatmo {
     }
 
     async fn get_spatial_data(&self, time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
-        read_netatmo(time);
-
-        todo!()
+        // TODO: spawn this in a blocking tokio thread
+        read_netatmo(time)
     }
 }
 
@@ -54,6 +56,7 @@ mod tests {
             Utc.with_ymd_and_hms(2023, 07, 13, 0, 0, 0)
                 .unwrap()
                 .timestamp(),
-        ));
+        ))
+        .unwrap();
     }
 }
