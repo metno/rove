@@ -431,6 +431,7 @@ name = "example_binary"
 version = "0.1.0"
 dependencies = [
  "frost",
+ "lustre_netatmo",
  "rove",
  "tokio",
 ]
