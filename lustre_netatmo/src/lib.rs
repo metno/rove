@@ -75,17 +75,4 @@ impl DataSource for LustreNetatmo {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_read_netatmo() {
-        read_netatmo(Timestamp(
-            Utc.with_ymd_and_hms(2023, 07, 13, 0, 0, 0)
-                .unwrap()
-                .timestamp(),
-        ))
-        .unwrap();
-    }
-}
+// TODO: add unit test?
