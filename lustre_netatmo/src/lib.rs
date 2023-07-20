@@ -1,9 +1,15 @@
+use async_trait::async_trait;
 use chrono::prelude::*;
-use csv;
-use rove::data_switch::Timestamp;
+use rove::{
+    data_switch,
+    data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
+};
 use std::fs::File;
 
-pub fn read_netatmo(time: Timestamp) {
+#[derive(Debug)]
+pub struct LustreNetatmo;
+
+fn read_netatmo(time: Timestamp) {
     let time = Utc.timestamp_opt(time.0, 0).unwrap();
 
     // TODO: assert minute and second are both 0
@@ -16,6 +22,25 @@ pub fn read_netatmo(time: Timestamp) {
     for record_res in rdr.records() {
         let record = record_res.unwrap();
         println!("{:?}", record);
+    }
+}
+
+#[async_trait]
+impl DataSource for LustreNetatmo {
+    async fn get_series_data(
+        &self,
+        _data_id: &str,
+        _timespec: Timerange,
+        _num_leading_points: u8,
+    ) -> Result<SeriesCache, data_switch::Error> {
+        // TODO: return a nice error instead of panicking
+        unimplemented!()
+    }
+
+    async fn get_spatial_data(&self, time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
+        read_netatmo(time);
+
+        todo!()
     }
 }
 

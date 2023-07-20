@@ -1077,6 +1077,7 @@ checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 name = "lustre_netatmo"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "csv",
  "rove",
