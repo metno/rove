@@ -3,5 +3,6 @@
 members = [
   "rove",
   "frost",
-  "example_binary"
+  "example_binary",
+  "lustre_netatmo"
 ]

@@ -4,8 +4,6 @@ use olympian::points::Points;
 use std::collections::HashMap;
 use thiserror::Error;
 
-pub mod lustre_netatmo;
-
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
