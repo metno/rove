@@ -11,6 +11,14 @@ pub enum Error {
     InvalidSeriesId(String),
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
+    #[error("io error")]
+    Io(#[from] std::io::Error),
+    #[error("this data source does not offer series data: {0}")]
+    SeriesUnimplemented(String),
+    #[error("this data source does not offer spatial data: {0}")]
+    SpatialUnimplemented(String),
+    #[error("tokio task failure")]
+    JoinError(#[from] tokio::task::JoinError),
     // TODO: remove this and provide proper errors to map to
     #[error("connector failed: {0}")]
     CatchAll(String),

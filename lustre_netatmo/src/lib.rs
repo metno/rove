@@ -5,7 +5,7 @@ use rove::{
     data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
 use serde::Deserialize;
-use std::fs::File;
+use std::{fs::File, io};
 
 #[derive(Debug)]
 pub struct LustreNetatmo;
@@ -25,13 +25,20 @@ struct Record {
 }
 
 fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
+    // timestamp should be validated before it gets here, so it should be safe to unwrap
     let time = Utc.timestamp_opt(time.0, 0).unwrap();
 
-    // TODO: assert minute and second are both 0
+    if time.minute() != 0 || time.second() != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "timestamps for fetching netatmo data must be on the hour",
+        )
+        .into());
+    }
 
     let path = format!("{}", time.format("/lustre/storeB/immutable/archive/projects/metproduction/yr_short/%Y/%m/%d/obs_ta_%Y%m%dT%HZ.txt"));
 
-    let file = File::open(path).unwrap();
+    let file = File::open(path)?;
 
     // TODO: probably some optimisation potential here?
     let mut lats = Vec::new();
@@ -41,7 +48,7 @@ fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
 
     let mut rdr = csv::ReaderBuilder::new().delimiter(b';').from_reader(file);
     for result in rdr.deserialize() {
-        let record: Record = result.unwrap();
+        let record: Record = result.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         // TODO: should we allow more prids?
         // prid 3 represents netatmo data, but if we use this as a backing set
@@ -65,14 +72,13 @@ impl DataSource for LustreNetatmo {
         _timespec: Timerange,
         _num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        // TODO: return a nice error instead of panicking
-        unimplemented!()
+        Err(data_switch::Error::SeriesUnimplemented(
+            "netatmo files are only in timeslice format".to_string(),
+        ))
     }
 
     async fn get_spatial_data(&self, time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
-        tokio::task::spawn_blocking(move || read_netatmo(time))
-            .await
-            .unwrap()
+        tokio::task::spawn_blocking(move || read_netatmo(time)).await?
     }
 }
 
