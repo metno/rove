@@ -1081,6 +1081,7 @@ dependencies = [
  "chrono",
  "csv",
  "rove",
+ "serde",
 ]
 
 [[package]]

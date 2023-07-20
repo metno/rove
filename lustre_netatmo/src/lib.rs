@@ -4,10 +4,21 @@ use rove::{
     data_switch,
     data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
+use serde::Deserialize;
 use std::fs::File;
 
 #[derive(Debug)]
 pub struct LustreNetatmo;
+
+#[derive(Debug, Deserialize)]
+struct Record {
+    lat: f32,
+    lon: f32,
+    elev: f32,
+    value: f32,
+    prid: u32,
+    dqc: u32,
+}
 
 fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
     let time = Utc.timestamp_opt(time.0, 0).unwrap();
@@ -19,8 +30,8 @@ fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
     let file = File::open(path).unwrap();
 
     let mut rdr = csv::ReaderBuilder::new().delimiter(b';').from_reader(file);
-    for record_res in rdr.records() {
-        let record = record_res.unwrap();
+    for result in rdr.deserialize() {
+        let record: Record = result.unwrap();
         println!("{:?}", record);
     }
 
