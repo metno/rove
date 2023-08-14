@@ -3,6 +3,8 @@ use chronoutil::RelativeDuration;
 use olympian::points::{CoordinateType, Points};
 use std::collections::HashMap;
 use thiserror::Error;
+use std::fmt;
+use crate::pb::util::GeoPoint;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -31,6 +33,14 @@ pub struct Timestamp(pub i64);
 pub struct Timerange {
     pub start: Timestamp,
     pub end: Timestamp,
+}
+
+//pub struct Polygon(Vec<GeoPoint>);
+
+impl fmt::Display for GeoPoint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "lat:{},lon:{}", self.lat, self.lon)
+    }
 }
 
 // TODO: move this to olympian?
@@ -68,7 +78,12 @@ pub trait DataSource: Sync + std::fmt::Debug {
     ) -> Result<SeriesCache, Error>;
 
     // TODO: add a str param for extra specification?
-    async fn get_spatial_data(&self, timestamp: Timestamp) -> Result<SpatialCache, Error>;
+    async fn get_spatial_data(
+        &self,
+        polygon: Vec<GeoPoint>,
+        extra_spec: &str, 
+        timestamp: Timestamp,
+    ) -> Result<SpatialCache, Error>;
 }
 
 #[derive(Debug)]
@@ -105,14 +120,15 @@ impl<'ds> DataSwitch<'ds> {
     // TODO: handle backing sources
     pub async fn get_spatial_data(
         &self,
-        source_id: &str,
+        polygon: Vec<GeoPoint>,
+        extra_spec: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {
         let data_source = self
             .sources
-            .get(source_id)
-            .ok_or_else(|| Error::InvalidDataSource(source_id.to_string()))?;
+            .get(extra_spec)
+            .ok_or_else(|| Error::InvalidDataSource(extra_spec.to_string()))?;
 
-        data_source.get_spatial_data(timestamp).await
+        data_source.get_spatial_data(polygon, extra_spec, timestamp).await
     }
 }

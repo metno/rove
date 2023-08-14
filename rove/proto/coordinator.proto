@@ -36,6 +36,8 @@ message ValidateSpatialRequest {
   repeated string tests = 4;
   // if not provided, the whole globe will be used
   repeated util.GeoPoint polygon = 5;
+  // used in spatial calls to give extra params like weather element
+  string extra_spec = 6;
 }
 
 message SeriesTestResult {

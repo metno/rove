@@ -6,6 +6,7 @@ use rove::{
 };
 use serde::Deserialize;
 use std::{fs::File, io};
+use rove::pb::util::GeoPoint;
 
 #[derive(Debug)]
 pub struct LustreNetatmo;
@@ -77,7 +78,12 @@ impl DataSource for LustreNetatmo {
         ))
     }
 
-    async fn get_spatial_data(&self, time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
+    async fn get_spatial_data(
+        &self,        
+        _polygon: Vec<GeoPoint>,
+        _extra_spec: &str, 
+        time: Timestamp,
+    ) -> Result<SpatialCache, data_switch::Error> {
         tokio::task::spawn_blocking(move || read_netatmo(time)).await?
     }
 }

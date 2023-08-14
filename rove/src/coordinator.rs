@@ -303,7 +303,8 @@ impl Coordinator for MyCoordinator<'static> {
         let data = self
             .data_switch
             .get_spatial_data(
-                req.data_source.as_str(),
+                req.polygon,
+                req.extra_spec.as_str(),
                 Timestamp(
                     req.time
                         .as_ref()

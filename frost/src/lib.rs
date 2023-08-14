@@ -6,10 +6,12 @@ use rove::{
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
+use rove::pb::util::GeoPoint;
 
 // TODO: move duration into series?
 mod duration;
 mod series;
+mod spatial;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -89,8 +91,12 @@ impl DataSource for Frost {
 
     async fn get_spatial_data(
         &self,
-        _timestamp: Timestamp,
+        polygon: Vec<GeoPoint>,
+        extra_spec: &str, 
+        timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
-        todo!()
+        spatial::get_spatial_data_inner(polygon, extra_spec, timestamp)
+        .await
+        .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
     }
 }

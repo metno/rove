@@ -6,7 +6,7 @@ use rove::{
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
     pb::{
         coordinator::{coordinator_client::CoordinatorClient, ValidateSeriesRequest},
-        util::Flag,
+        util::{Flag, GeoPoint},
     },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -37,6 +37,8 @@ impl DataSource for TestDataSource {
 
     async fn get_spatial_data(
         &self,
+        _polygon: Vec<GeoPoint>,
+        _extra_spec: &str, 
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         unimplemented!()
