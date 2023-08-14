@@ -39,7 +39,7 @@ pub struct Timerange {
 
 impl fmt::Display for GeoPoint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "lat:{},lon:{}", self.lat, self.lon)
+        write!(f, "\"lat\":{},\"lon\":{}", self.lat, self.lon)
     }
 }
 
@@ -124,11 +124,16 @@ impl<'ds> DataSwitch<'ds> {
         extra_spec: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {
+
+        let (data_source_id, element) = extra_spec
+        .split_once(':')
+        .ok_or_else(|| Error::InvalidSeriesId(extra_spec.to_string()))?;
+
         let data_source = self
             .sources
-            .get(extra_spec)
-            .ok_or_else(|| Error::InvalidDataSource(extra_spec.to_string()))?;
+            .get(data_source_id)
+            .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
-        data_source.get_spatial_data(polygon, extra_spec, timestamp).await
+        data_source.get_spatial_data(polygon, element, timestamp).await
     }
 }

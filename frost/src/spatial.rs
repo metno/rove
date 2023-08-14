@@ -1,7 +1,6 @@
 use crate::{Error, FrostObs};
 use chrono::prelude::*;
-use rstar::RTree;
-use olympian::points::{CoordinateType, Points};
+use chrono::Duration;
 use rove::data_switch::{SpatialCache, Timestamp};
 use rove::pb::util::GeoPoint;
 
@@ -32,47 +31,50 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
 
 fn json_to_spatial_cache(
     resp: serde_json::Value,
-    polygon: Vec<GeoPoint>,
-    extra_spec: &str,
-    timestamp: DateTime<Utc>,
+    _polygon: Vec<GeoPoint>,
+    _element: &str,
+    _timestamp: DateTime<Utc>,
 ) -> Result<SpatialCache, Error> {
-    let obses: Vec<FrostObs> = extract_obs(resp)?;
+    let _obses: Vec<FrostObs> = extract_obs(resp)?;
 
-    let mut data = Vec::new();
-    let mut tree = RTree::new();
-    let mut rtree: Points = Points{ 
-        tree: tree,
-        lats: Vec::new(),
-        lons: Vec::new(),
-        elevs: Vec::new(),
-        lafs: Vec::new(),
-        ctype: CoordinateType::Cartesian,
-     };
+    // todo: make mutable and do something to these..
+    let lats = Vec::new();
+    let lons = Vec::new();
+    let elevs = Vec::new();
+    let values = Vec::new();
 
-    Ok(SpatialCache {
-        rtree,
-        data,
-    })
+    Ok(SpatialCache::new(lats, lons, elevs, values))
 }
 
 pub async fn get_spatial_data_inner(
     polygon: Vec<GeoPoint>,
-    extra_spec: &str,
+    element: &str,
     timestamp: Timestamp,
 ) -> Result<SpatialCache, Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
-    let elementids: String = (&extra_spec).to_string();
+    let elementids: String = (&element).to_string();
     let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
     
     // TODO: parse the vector of geopoints into an appropriate string
     let mut s = String::new();
-    s.push_str("{");
+    s.push_str("[");
+    let mut first = true;
     for coord in polygon.iter() {
-        s.push_str(&coord.to_string())
+        if !first {
+            s.push_str(",");
+        }
+        s.push_str("{");
+        s.push_str(&coord.to_string());
+        s.push_str("}");
+        first = false;
     }
-    s.push_str("}");
+    s.push_str("]");
+
+    println!("{}", s);
+    println!("{}", elementids);
+    println!("{}", time);
 
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
@@ -84,8 +86,8 @@ pub async fn get_spatial_data_inner(
                 "time",
                 format!(
                     "{}/{}",
-                    (time).to_rfc3339_opts(SecondsFormat::Secs, true),
-                    (time).to_rfc3339_opts(SecondsFormat::Secs, true)
+                    (time - Duration::minutes(10)).to_rfc3339_opts(SecondsFormat::Secs, true),
+                    (time + Duration::minutes(10)).to_rfc3339_opts(SecondsFormat::Secs, true)
                 ),
             ),
         ])
@@ -94,15 +96,16 @@ pub async fn get_spatial_data_inner(
         .json()
         .await?;
 
+    println!("{}", resp);
+
     // TODO: send this part to rayon?
     json_to_spatial_cache(
         resp,
         polygon,
-        extra_spec,
+        element,
         time,
     )
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -112,14 +115,13 @@ mod tests {
 {
 }"#;
 
+    /* 
     #[test]
     fn test_json_to_spatial_cache() {
         let resp = serde_json::from_str(RESP).unwrap();
 
         let polygon:Vec<GeoPoint> = vec![GeoPoint{lat: 59.88, lon: 10.64},GeoPoint{lat: 60.00, lon: 10.56},GeoPoint{lat: 59.99, lon: 10.88}];
-        let element: &str = r#"air_temperature"#;
-
-        println!("{}", resp);
+        let extra_spec: &str = r#"frost:air_temperature"#;
 
         let spatial_cache = json_to_spatial_cache(
             resp,
@@ -128,5 +130,16 @@ mod tests {
             Utc.with_ymd_and_hms(2023, 6, 30, 12, 0, 0).unwrap(),
         )
         .unwrap();
+    }
+    */
+    #[tokio::test]
+    async fn test_get_spatial_data_inner() {
+
+        let polygon:Vec<GeoPoint> = vec![GeoPoint{lat: 59.8, lon: 10.33},GeoPoint{lat: 60.05, lon: 10.49},GeoPoint{lat: 60.04, lon: 10.98},GeoPoint{lat: 59.76, lon: 10.98}];
+        let element: &str = r#"air_temperature"#;
+        let time = Timestamp::from(rove::data_switch::Timestamp(1691949600));
+
+        let frost_resp = get_spatial_data_inner(polygon, element, time).await.unwrap();
+        println!("{:?}", frost_resp.data);
     }
 }
