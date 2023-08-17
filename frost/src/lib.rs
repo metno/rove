@@ -54,6 +54,26 @@ struct FrostObs {
     time: DateTime<Utc>,
 }
 
+#[derive(Deserialize, Debug)]
+struct FrostLatLonElev {
+    #[serde(rename = "elevation(masl/hs)")]
+    #[serde(deserialize_with = "des_value")]
+    elevation: f32,
+    #[serde(deserialize_with = "des_value")]
+    latitude: f32,
+    #[serde(deserialize_with = "des_value")]
+    longitude: f32,
+}
+
+#[derive(Deserialize, Debug)]
+struct FrostLocation {
+    #[serde(deserialize_with = "des_time")]
+    from: DateTime<Utc>,
+    #[serde(deserialize_with = "des_time")]
+    to: DateTime<Utc>,
+    value: FrostLatLonElev,
+}
+
 fn des_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
 where
     D: Deserializer<'de>,

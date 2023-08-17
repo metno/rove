@@ -3,7 +3,6 @@ use chronoutil::RelativeDuration;
 use olympian::points::{CoordinateType, Points};
 use std::collections::HashMap;
 use thiserror::Error;
-use std::fmt;
 use crate::pb::util::GeoPoint;
 
 #[derive(Error, Debug)]
@@ -36,12 +35,6 @@ pub struct Timerange {
 }
 
 //pub struct Polygon(Vec<GeoPoint>);
-
-impl fmt::Display for GeoPoint {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\"lat\":{},\"lon\":{}", self.lat, self.lon)
-    }
-}
 
 // TODO: move this to olympian?
 pub struct SeriesCache {
