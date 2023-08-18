@@ -110,6 +110,32 @@ pub async fn run_test_spatial(
             .map(|flag| flag.try_into().unwrap())
             .collect()
         }
+        "sct" => {
+            let n = cache.data.len();
+            olympian::sct(
+                &cache.rtree,
+                &cache.data,
+                0,
+                0,
+                0.,
+                0.,
+                0,
+                0,
+                0.,
+                0.,
+                0.,
+                &vec![0.; n],
+                &vec![0.; n],
+                &vec![0.; n],
+                None,
+            )
+            // TODO: do something about this unwrap
+            .unwrap()
+            .flags
+            .into_iter()
+            .map(|flag| flag.try_into().unwrap())
+            .collect()
+        }
         _ => {
             if test.starts_with("test") {
                 vec![Flag::Inconclusive]
