@@ -131,7 +131,6 @@ pub async fn run_test_spatial(
             )
             // TODO: do something about this unwrap
             .unwrap()
-            .flags
             .into_iter()
             .map(|flag| flag.try_into().unwrap())
             .collect()

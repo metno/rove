@@ -1208,9 +1208,9 @@ dependencies = [
 
 [[package]]
 name = "olympian"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9e81865f4c173b2ebc48461447b9de173520f12f295b40eaa5b49caa5dcb4a6"
+checksum = "a82ab1e130c0064d49aaf30aaf261c7f2bada4268f394bf20f3a2a91bbcf90ac"
 dependencies = [
  "dyn-stack",
  "faer-core",
