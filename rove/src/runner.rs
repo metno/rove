@@ -29,11 +29,11 @@ pub async fn run_test_series(
 
             // TODO: use actual test params
             // TODO: use par_iter?
-            // TODO: do something about that unwrap?
             cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
                 .windows((LEADING_PER_RUN + 1).into())
                 .map(|window| {
                     olympian::dip_check(window, 2., 3.)
+                        // TODO: do something about this unwrap
                         .unwrap()
                         .try_into()
                         .unwrap()
@@ -46,6 +46,7 @@ pub async fn run_test_series(
                 .windows((LEADING_PER_RUN + 1).into())
                 .map(|window| {
                     olympian::step_check(window, 2., 3.)
+                        // TODO: do something about this unwrap
                         .unwrap()
                         .try_into()
                         .unwrap()
@@ -89,6 +90,26 @@ pub async fn run_test_spatial(
     cache: &SpatialCache,
 ) -> Result<ValidateSpatialResponse, Error> {
     let flags: Vec<Flag> = match test {
+        "buddy_check" => {
+            let n = cache.data.len();
+            olympian::buddy_check(
+                &cache.rtree,
+                &cache.data,
+                &vec![0.; n],
+                &vec![0; n],
+                0.,
+                0.,
+                0.,
+                0.,
+                0,
+                &vec![true; n],
+            )
+            // TODO: do something about this unwrap
+            .unwrap()
+            .into_iter()
+            .map(|flag| flag.try_into().unwrap())
+            .collect()
+        }
         _ => {
             if test.starts_with("test") {
                 vec![Flag::Inconclusive]
