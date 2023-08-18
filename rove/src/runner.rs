@@ -9,7 +9,6 @@ use crate::{
 };
 use chrono::prelude::*;
 use chronoutil::DateRule;
-use olympian::dip_check;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
@@ -33,7 +32,24 @@ pub async fn run_test_series(
             // TODO: do something about that unwrap?
             cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
                 .windows((LEADING_PER_RUN + 1).into())
-                .map(|window| dip_check(window, 2., 3.).unwrap().try_into().unwrap())
+                .map(|window| {
+                    olympian::dip_check(window, 2., 3.)
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                })
+                .collect()
+        }
+        "step_check" => {
+            const LEADING_PER_RUN: u8 = 1;
+            cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
+                .windows((LEADING_PER_RUN + 1).into())
+                .map(|window| {
+                    olympian::step_check(window, 2., 3.)
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                })
                 .collect()
         }
         _ => {
