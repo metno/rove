@@ -327,7 +327,7 @@ impl Coordinator for MyCoordinator<'static> {
     }
 }
 
-fn construct_dag_placeholder() -> Dag<String> {
+fn construct_fake_dag() -> Dag<String> {
     let mut dag: Dag<String> = Dag::new();
 
     let test6 = dag.add_node(String::from("test6"));
@@ -343,6 +343,17 @@ fn construct_dag_placeholder() -> Dag<String> {
     dag
 }
 
+fn construct_hardcoded_dag() -> Dag<String> {
+    let mut dag: Dag<String> = Dag::new();
+
+    dag.add_node(String::from("dip_check"));
+    dag.add_node(String::from("step_check"));
+    dag.add_node(String::from("buddy_check"));
+    dag.add_node(String::from("sct"));
+
+    dag
+}
+
 pub async fn start_server(
     listener: ListenerType,
     data_switch: DataSwitch<'static>,
@@ -353,7 +364,7 @@ pub async fn start_server(
                 .with_max_level(tracing::Level::DEBUG)
                 .init();
 
-            let coordinator = MyCoordinator::new(construct_dag_placeholder(), data_switch);
+            let coordinator = MyCoordinator::new(construct_hardcoded_dag(), data_switch);
 
             tracing::info!(message = "Starting server.", %addr);
 
@@ -364,7 +375,7 @@ pub async fn start_server(
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let coordinator = MyCoordinator::new(construct_dag_placeholder(), data_switch);
+            let coordinator = MyCoordinator::new(construct_fake_dag(), data_switch);
 
             Server::builder()
                 .add_service(CoordinatorServer::new(coordinator))
@@ -382,8 +393,7 @@ mod tests {
 
     #[test]
     fn test_construct_subdag() {
-        let coordinator =
-            MyCoordinator::new(construct_dag_placeholder(), DataSwitch::new(HashMap::new()));
+        let coordinator = MyCoordinator::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
 
         assert_eq!(coordinator.dag.count_edges(), 6);
 
