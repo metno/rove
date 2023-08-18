@@ -7,7 +7,7 @@ pub mod pb {
         tonic::include_proto!("util");
 
         impl TryFrom<olympian::Flag> for Flag {
-            type Error = &'static str;
+            type Error = String;
 
             fn try_from(item: olympian::Flag) -> Result<Self, Self::Error> {
                 match item {
@@ -18,7 +18,7 @@ pub mod pb {
                     olympian::Flag::Invalid => Ok(Self::Invalid),
                     olympian::Flag::DataMissing => Ok(Self::DataMissing),
                     olympian::Flag::Isolated => Ok(Self::Isolated),
-                    _ => Err("Unrecognised flag from olympian"),
+                    _ => Err(format!("{:?}", item)),
                 }
             }
         }
