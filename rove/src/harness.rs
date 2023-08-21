@@ -1,10 +1,8 @@
 use crate::{
     data_switch::{SeriesCache, SpatialCache},
     pb::{
-        coordinator::{
-            SeriesTestResult, SpatialTestResult, ValidateSeriesResponse, ValidateSpatialResponse,
-        },
-        util::{Flag, GeoPoint},
+        Flag, GeoPoint, SeriesTestResult, SpatialTestResult, ValidateSeriesResponse,
+        ValidateSpatialResponse,
     },
 };
 use chrono::prelude::*;

@@ -1,8 +1,8 @@
 use frost::Frost;
 use lustre_netatmo::LustreNetatmo;
 use rove::{
-    coordinator::{start_server, ListenerType},
     data_switch::{DataSource, DataSwitch},
+    server::{start_server, ListenerType},
 };
 use std::collections::HashMap;
 

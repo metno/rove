@@ -1,13 +1,10 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use rove::{
-    coordinator::{start_server, ListenerType},
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::{
-        coordinator::{coordinator_client::CoordinatorClient, ValidateSeriesRequest},
-        util::Flag,
-    },
+    pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest},
+    server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
@@ -73,7 +70,7 @@ async fn integration_test() {
         }))
         .await
         .unwrap();
-    let mut client = CoordinatorClient::new(coordinator_channel);
+    let mut client = RoveClient::new(coordinator_channel);
 
     let request_future = async {
         let mut stream = client
