@@ -1,30 +1,24 @@
-pub mod coordinator;
 pub mod data_switch;
-mod runner;
+mod harness;
+pub mod server;
 
 pub mod pb {
-    pub mod util {
-        tonic::include_proto!("util");
+    tonic::include_proto!("rove");
 
-        impl TryFrom<olympian::Flag> for Flag {
-            type Error = String;
+    impl TryFrom<olympian::Flag> for Flag {
+        type Error = String;
 
-            fn try_from(item: olympian::Flag) -> Result<Self, Self::Error> {
-                match item {
-                    olympian::Flag::Pass => Ok(Self::Pass),
-                    olympian::Flag::Fail => Ok(Self::Fail),
-                    olympian::Flag::Warn => Ok(Self::Warn),
-                    olympian::Flag::Inconclusive => Ok(Self::Inconclusive),
-                    olympian::Flag::Invalid => Ok(Self::Invalid),
-                    olympian::Flag::DataMissing => Ok(Self::DataMissing),
-                    olympian::Flag::Isolated => Ok(Self::Isolated),
-                    _ => Err(format!("{:?}", item)),
-                }
+        fn try_from(item: olympian::Flag) -> Result<Self, Self::Error> {
+            match item {
+                olympian::Flag::Pass => Ok(Self::Pass),
+                olympian::Flag::Fail => Ok(Self::Fail),
+                olympian::Flag::Warn => Ok(Self::Warn),
+                olympian::Flag::Inconclusive => Ok(Self::Inconclusive),
+                olympian::Flag::Invalid => Ok(Self::Invalid),
+                olympian::Flag::DataMissing => Ok(Self::DataMissing),
+                olympian::Flag::Isolated => Ok(Self::Isolated),
+                _ => Err(format!("{:?}", item)),
             }
         }
-    }
-
-    pub mod coordinator {
-        tonic::include_proto!("coordinator");
     }
 }

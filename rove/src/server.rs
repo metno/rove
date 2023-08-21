@@ -1,11 +1,11 @@
 use crate::{
     data_switch::{DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::coordinator::{
-        coordinator_server::{Coordinator, CoordinatorServer},
+    harness,
+    pb::{
+        rove_server::{Rove, RoveServer},
         ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
         ValidateSpatialResponse,
     },
-    runner,
 };
 use dagmar::{Dag, NodeId};
 use futures::{stream::FuturesUnordered, Stream};
@@ -38,16 +38,16 @@ pub enum ListenerType {
 }
 
 #[derive(Debug)]
-struct MyCoordinator<'a> {
+struct RoveService<'a> {
     // TODO: the String here can probably be &'a or &'static str
     // TODO: separate DAGs for series and spatial tests?
     dag: Dag<String>,
     data_switch: DataSwitch<'a>,
 }
 
-impl<'a> MyCoordinator<'a> {
+impl<'a> RoveService<'a> {
     fn new(dag: Dag<String>, data_switch: DataSwitch<'a>) -> Self {
-        MyCoordinator { dag, data_switch }
+        RoveService { dag, data_switch }
     }
 
     fn construct_subdag(&self, required_nodes: Vec<String>) -> Result<Dag<String>, Error> {
@@ -110,7 +110,7 @@ fn schedule_tests_series(
         let mut test_futures = FuturesUnordered::new();
 
         for leaf_index in subdag.leaves.clone().into_iter() {
-            test_futures.push(runner::run_test_series(
+            test_futures.push(harness::run_test_series(
                 subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
                 &data,
             ));
@@ -148,7 +148,7 @@ fn schedule_tests_series(
                         if children_completed
                             >= subdag.nodes.get(*parent_index).unwrap().children.len()
                         {
-                            test_futures.push(runner::run_test_series(
+                            test_futures.push(harness::run_test_series(
                                 subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
                                 &data,
                             ))
@@ -177,7 +177,7 @@ fn schedule_tests_spatial(
         let mut test_futures = FuturesUnordered::new();
 
         for leaf_index in subdag.leaves.clone().into_iter() {
-            test_futures.push(runner::run_test_spatial(
+            test_futures.push(harness::run_test_spatial(
                 subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
                 &data,
             ));
@@ -215,7 +215,7 @@ fn schedule_tests_spatial(
                         if children_completed
                             >= subdag.nodes.get(*parent_index).unwrap().children.len()
                         {
-                            test_futures.push(runner::run_test_spatial(
+                            test_futures.push(harness::run_test_spatial(
                                 subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
                                 &data,
                             ))
@@ -231,7 +231,7 @@ fn schedule_tests_spatial(
 }
 
 #[tonic::async_trait]
-impl Coordinator for MyCoordinator<'static> {
+impl Rove for RoveService<'static> {
     type ValidateSeriesStream = SeriesResponseStream;
     type ValidateSpatialStream = SpatialResponseStream;
 
@@ -364,21 +364,21 @@ pub async fn start_server(
                 .with_max_level(tracing::Level::DEBUG)
                 .init();
 
-            let coordinator = MyCoordinator::new(construct_hardcoded_dag(), data_switch);
+            let rove_service = RoveService::new(construct_hardcoded_dag(), data_switch);
 
             tracing::info!(message = "Starting server.", %addr);
 
             Server::builder()
                 .trace_fn(|_| tracing::info_span!("helloworld_server"))
-                .add_service(CoordinatorServer::new(coordinator))
+                .add_service(RoveServer::new(rove_service))
                 .serve(addr)
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let coordinator = MyCoordinator::new(construct_fake_dag(), data_switch);
+            let rove_service = RoveService::new(construct_fake_dag(), data_switch);
 
             Server::builder()
-                .add_service(CoordinatorServer::new(coordinator))
+                .add_service(RoveServer::new(rove_service))
                 .serve_with_incoming(stream)
                 .await?;
         }
@@ -393,17 +393,17 @@ mod tests {
 
     #[test]
     fn test_construct_subdag() {
-        let coordinator = MyCoordinator::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
+        let rove_service = RoveService::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
 
-        assert_eq!(coordinator.dag.count_edges(), 6);
+        assert_eq!(rove_service.dag.count_edges(), 6);
 
-        let subdag = coordinator
+        let subdag = rove_service
             .construct_subdag(vec![String::from("test4")])
             .unwrap();
 
         assert_eq!(subdag.count_edges(), 1);
 
-        let subdag = coordinator
+        let subdag = rove_service
             .construct_subdag(vec![String::from("test1")])
             .unwrap();
 
