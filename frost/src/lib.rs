@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
+use rove::pb::util::GeoPoint;
 use rove::{
     data_switch,
     data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
-use rove::pb::util::GeoPoint;
 
 // TODO: move duration into series?
 mod duration;
@@ -112,11 +112,11 @@ impl DataSource for Frost {
     async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
-        extra_spec: &str, 
+        extra_spec: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         spatial::get_spatial_data_inner(polygon, extra_spec, timestamp)
-        .await
-        .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
+            .await
+            .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
     }
 }
