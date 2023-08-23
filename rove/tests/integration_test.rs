@@ -38,7 +38,7 @@ impl DataSource for TestDataSource {
     async fn get_spatial_data(
         &self,
         _polygon: Vec<GeoPoint>,
-        _extra_spec: &str, 
+        _extra_spec: &str,
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         unimplemented!()

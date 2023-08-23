@@ -114,8 +114,8 @@ pub async fn get_spatial_data_inner(
     let elementids: String = (&element).to_string();
     let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
 
-    // TODO: parse the vector of geopoints into an appropriate string
-    // Move into seperate function?
+    // Parse the vector of geopoints into an appropriate string
+    // TODO: Move into seperate function?
     let mut s = String::new();
     s.push('[');
     let mut first = true;
@@ -469,5 +469,5 @@ mod tests {
             .unwrap();
         println!("{:?}", frost_resp.data);
     }
-     */
+    */
 }

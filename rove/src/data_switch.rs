@@ -1,9 +1,9 @@
+use crate::pb::util::GeoPoint;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::points::{CoordinateType, Points};
 use std::collections::HashMap;
 use thiserror::Error;
-use crate::pb::util::GeoPoint;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -74,7 +74,7 @@ pub trait DataSource: Sync + std::fmt::Debug {
     async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
-        extra_spec: &str, 
+        extra_spec: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error>;
 }
@@ -117,16 +117,17 @@ impl<'ds> DataSwitch<'ds> {
         extra_spec: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {
-
         let (data_source_id, element) = extra_spec
-        .split_once(':')
-        .ok_or_else(|| Error::InvalidSeriesId(extra_spec.to_string()))?;
+            .split_once(':')
+            .ok_or_else(|| Error::InvalidSeriesId(extra_spec.to_string()))?;
 
         let data_source = self
             .sources
             .get(data_source_id)
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
-        data_source.get_spatial_data(polygon, element, timestamp).await
+        data_source
+            .get_spatial_data(polygon, element, timestamp)
+            .await
     }
 }
