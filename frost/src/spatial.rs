@@ -142,7 +142,9 @@ pub async fn get_spatial_data_inner(
             ("incobs", "true".to_string()),
             (
                 "time",
-                format!("{}", (time).to_rfc3339_opts(SecondsFormat::Secs, true),),
+                (time)
+                    .to_rfc3339_opts(SecondsFormat::Secs, true)
+                    .to_string(),
             ),
             ("geopostype", "stationary".to_string()),
         ])
