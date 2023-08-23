@@ -1,37 +1,45 @@
 use crate::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
-use core::cmp::Ordering;
 use rove::data_switch::{SpatialCache, Timestamp};
 use rove::pb::util::GeoPoint;
 
-fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
-    let ts_portion: &mut Vec<serde_json::Value> = resp
-        .get_mut("data")
-        .ok_or(Error::FindObs(
-            "couldn't find data field on root".to_string(),
+fn extract_metadata(
+    mut header: serde_json::Value,
+    time: DateTime<Utc>,
+) -> Result<FrostLatLonElev, Error> {
+    let location = header
+        .get_mut("extra")
+        .ok_or(Error::FindLocation(
+            "couldn't find extra in header".to_string(),
         ))?
-        .get_mut("tseries")
-        .ok_or(Error::FindObs(
-            "couldn't find tseries field on data".to_string(),
-        ))?
-        .as_array_mut()
         .take()
-        .unwrap();
+        .get_mut("station")
+        .ok_or(Error::FindLocation(
+            "couldn't find station field in extra".to_string(),
+        ))?
+        .get_mut("location")
+        .ok_or(Error::FindLocation(
+            "couldn't find location field in station".to_string(),
+        ))?
+        .take();
 
-    // get the value of the observations
-    let obs: Vec<FrostObs> = ts_portion
-        .iter_mut()
-        .map(|i| i.get_mut("observations").unwrap().take())
-        .map(|mut i| serde_json::from_value(i.get_mut(0).unwrap().take()).unwrap())
-        .collect();
+    let loc = serde_json::from_value::<Vec<FrostLocation>>(location)?;
 
-    Ok(obs)
+    let lat_lon_elev = loc
+        .into_iter()
+        .find(|l| time > l.from && time < l.to)
+        .ok_or(Error::FindLocation(
+            "couldn't find relevant location for this observation".to_string(),
+        ))?
+        .value;
+
+    Ok(lat_lon_elev)
 }
 
-fn extract_metadata(
+fn extract_data(
     mut resp: serde_json::Value,
     time: DateTime<Utc>,
-) -> Result<Vec<FrostLatLonElev>, Error> {
+) -> Result<Vec<(FrostObs, FrostLatLonElev)>, Error> {
     let ts_portion: &mut Vec<serde_json::Value> = resp
         .get_mut("data")
         .ok_or(Error::FindObs(
@@ -43,36 +51,33 @@ fn extract_metadata(
         ))?
         .as_array_mut()
         .take()
-        .unwrap();
+        .ok_or(Error::FindObs("couldn't get array of tseries".to_string()))?;
 
-    // metadata
-    let extra_portion = ts_portion
+    let observations = ts_portion
         .iter_mut()
-        .map(|i| i.get_mut("header").unwrap().take())
-        .map(|mut i| i.get_mut("extra").unwrap().take());
+        .map(|ts| {
+            let obs: FrostObs = serde_json::from_value(
+                ts.get_mut("observations")
+                    .ok_or(Error::FindObs(
+                        "couldn't find observations field on tseries".to_string(),
+                    ))?
+                    .get_mut(0)
+                    .ok_or(Error::FindObs("couldn't find first obs".to_string()))?
+                    .take(),
+            )?;
+            let lat_lon_elev = extract_metadata(
+                ts.get_mut("header")
+                    .ok_or(Error::FindObs(
+                        "couldn't find header field on tseries".to_string(),
+                    ))?
+                    .take(),
+                time,
+            )?;
+            Ok((obs, lat_lon_elev))
+        })
+        .collect::<Result<Vec<(FrostObs, FrostLatLonElev)>, Error>>()?;
 
-    // get the lat/lon, elev
-    let mut latlonelev: Vec<FrostLatLonElev> = vec![];
-    for mut extra in extra_portion {
-        let location = extra
-            .get_mut("station")
-            .unwrap()
-            .take()
-            .get_mut("location")
-            .unwrap()
-            .take();
-
-        let loc: Vec<FrostLocation> = serde_json::from_value(location).unwrap();
-
-        // find the one that is for the timestamp we have in the data
-        for l in loc {
-            if time.cmp(&l.from) == Ordering::Greater && time.cmp(&l.to) == Ordering::Less {
-                latlonelev.push(l.value)
-            }
-        }
-    }
-
-    Ok(latlonelev)
+    Ok(observations)
 }
 
 fn json_to_spatial_cache(
@@ -81,9 +86,7 @@ fn json_to_spatial_cache(
     _element: &str,
     timestamp: DateTime<Utc>,
 ) -> Result<SpatialCache, Error> {
-    let obses: Vec<FrostObs> = extract_obs(resp.clone())?;
-    let latloneleves: Vec<FrostLatLonElev> = extract_metadata(resp, timestamp)?;
-    assert_eq!(obses.len(), latloneleves.len());
+    let data = extract_data(resp, timestamp)?;
 
     // todo: make mutable and do something to these..
     let mut lats = Vec::new();
@@ -91,13 +94,11 @@ fn json_to_spatial_cache(
     let mut elevs = Vec::new();
     let mut values = Vec::new();
 
-    for o in obses {
-        values.push(o.body.value);
-    }
-    for lle in latloneleves {
-        lats.push(lle.latitude);
-        lons.push(lle.longitude);
-        elevs.push(lle.elevation);
+    for d in data {
+        values.push(d.0.body.value);
+        lats.push(d.1.latitude);
+        lons.push(d.1.longitude);
+        elevs.push(d.1.elevation);
     }
 
     Ok(SpatialCache::new(lats, lons, elevs, values))

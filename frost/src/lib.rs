@@ -22,7 +22,9 @@ pub enum Error {
     Request(#[from] reqwest::Error),
     #[error("failed to find obs in json body: {0}")]
     FindObs(String),
-    #[error("failed to deserialise obs to struct")]
+    #[error("failed to find location in json body: {0}")]
+    FindLocation(String),
+    #[error("failed to deserialise data to struct")]
     DeserializeObs(#[from] serde_json::Error),
     #[error("failed to find metadata in json body: {0}")]
     FindMetadata(String),
