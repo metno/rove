@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
-use rove::pb::util::GeoPoint;
 use rove::{
     data_switch,
     data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
+    pb::util::GeoPoint,
 };
 use serde::Deserialize;
 use std::{fs::File, io};

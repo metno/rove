@@ -34,8 +34,6 @@ pub struct Timerange {
     pub end: Timestamp,
 }
 
-//pub struct Polygon(Vec<GeoPoint>);
-
 // TODO: move this to olympian?
 pub struct SeriesCache {
     pub start_time: Timestamp,
@@ -74,7 +72,7 @@ pub trait DataSource: Sync + std::fmt::Debug {
     async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
-        extra_spec: &str,
+        element: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error>;
 }
@@ -117,7 +115,7 @@ impl<'ds> DataSwitch<'ds> {
         extra_spec: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {
-        let (data_source_id, element) = extra_spec
+        let (data_source_id, data_id) = extra_spec
             .split_once(':')
             .ok_or_else(|| Error::InvalidSeriesId(extra_spec.to_string()))?;
 
@@ -127,7 +125,7 @@ impl<'ds> DataSwitch<'ds> {
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
-            .get_spatial_data(polygon, element, timestamp)
+            .get_spatial_data(polygon, data_id, timestamp)
             .await
     }
 }
