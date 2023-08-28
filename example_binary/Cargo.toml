@@ -10,3 +10,13 @@ rove = { path = "../rove" }
 tokio = { version = "1.18.2", features = ["full"] }
 frost = { path = "../frost" }
 lustre_netatmo = { path = "../lustre_netatmo" }
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["async_tokio"] }
+tonic = "0.7.2"
+prost-types = "0.10"
+chrono = "0.4.26"
+
+[[bench]]
+name = "scalability_deliverable"
+harness = false
