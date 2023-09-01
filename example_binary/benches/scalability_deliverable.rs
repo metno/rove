@@ -21,7 +21,10 @@ use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
 
-const TEST_PARALLELISM: u64 = 100;
+const TEST_PARALLELISM_SINGLE: u64 = 100;
+const TEST_PARALLELISM_SERIES: u64 = 10;
+const DATA_LEN_SINGLE: usize = 3;
+const DATA_LEN_SERIES: usize = 10000;
 
 #[derive(Debug)]
 struct BenchDataSource;
@@ -30,16 +33,25 @@ struct BenchDataSource;
 impl DataSource for BenchDataSource {
     async fn get_series_data(
         &self,
-        _data_id: &str,
+        data_id: &str,
         _timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        black_box(Ok(SeriesCache {
-            start_time: Timestamp(0),
-            period: RelativeDuration::minutes(5),
-            data: vec![Some(1.), Some(1.), Some(1.)],
-            num_leading_points,
-        }))
+        match data_id {
+            "single" => black_box(Ok(SeriesCache {
+                start_time: Timestamp(0),
+                period: RelativeDuration::minutes(5),
+                data: vec![Some(1.); DATA_LEN_SINGLE],
+                num_leading_points,
+            })),
+            "series" => black_box(Ok(SeriesCache {
+                start_time: Timestamp(0),
+                period: RelativeDuration::minutes(5),
+                data: vec![Some(1.); DATA_LEN_SERIES],
+                num_leading_points,
+            })),
+            _ => panic!("unknown data_id"),
+        }
     }
 
     async fn get_spatial_data(
@@ -53,7 +65,7 @@ impl DataSource for BenchDataSource {
 fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {
     let (channel, server_future) = runtime.block_on(async {
         let data_switch = DataSwitch::new(HashMap::from([(
-            "test",
+            "bench",
             &BenchDataSource as &dyn DataSource,
         )]));
 
@@ -91,16 +103,16 @@ fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {
     (channel, join_handle)
 }
 
-async fn spam_series(channel: Channel) {
+async fn spam_single(channel: Channel) {
     // TODO: this client is redundant?
     let client = RoveClient::new(channel);
 
     let mut resps = JoinSet::new();
 
-    for _ in 0..TEST_PARALLELISM {
+    for _ in 0..TEST_PARALLELISM_SINGLE {
         let mut client = client.clone();
         let req = ValidateSeriesRequest {
-            series_id: String::from("test:1"),
+            series_id: String::from("bench:single"),
             tests: vec!["step_check".to_string(), "dip_check".to_string()],
             start_time: Some(prost_types::Timestamp::default()),
             end_time: Some(prost_types::Timestamp::default()),
@@ -127,6 +139,60 @@ async fn spam_series(channel: Channel) {
     }
 }
 
+async fn spam_series(channel: Channel) {
+    // TODO: this client is redundant?
+    let client = RoveClient::new(channel);
+
+    let mut resps = JoinSet::new();
+
+    for _ in 0..TEST_PARALLELISM_SERIES {
+        let mut client = client.clone();
+        let req = ValidateSeriesRequest {
+            series_id: String::from("bench:series"),
+            tests: vec!["step_check".to_string(), "dip_check".to_string()],
+            start_time: Some(prost_types::Timestamp::default()),
+            end_time: Some(prost_types::Timestamp::default()),
+        };
+
+        resps.spawn(tokio::spawn(
+            async move { client.validate_series(req).await },
+        ));
+    }
+
+    while let Some(resp) = resps.join_next().await {
+        let mut stream = resp.unwrap().unwrap().unwrap().into_inner();
+
+        let mut recv_count = 0;
+        while let Some(_recv) = stream.next().await {
+            // assert_eq!(
+            //     // TODO: improve
+            //     recv.unwrap().results.first().unwrap().flag,
+            //     Flag::Inconclusive as i32
+            // );
+            recv_count += 1;
+        }
+        assert_eq!(recv_count, 2);
+    }
+}
+
+pub fn single_benchmark(c: &mut Criterion) {
+    let runtime = Runtime::new().unwrap();
+
+    let (channel, _server_handle) = spawn_server(&runtime);
+
+    let mut group = c.benchmark_group("single_benchmark");
+    // TODO: reconsider these params?
+    group.sampling_mode(SamplingMode::Flat);
+    group.sample_size(10);
+    group.throughput(Throughput::Elements(TEST_PARALLELISM_SINGLE));
+    group.bench_with_input(
+        BenchmarkId::new("single_benchmark", TEST_PARALLELISM_SINGLE),
+        &channel,
+        |b, chan| b.to_async(&runtime).iter(|| spam_single(chan.clone())),
+    );
+    group.finish();
+}
+
 pub fn series_benchmark(c: &mut Criterion) {
     let runtime = Runtime::new().unwrap();
 
@@ -136,14 +202,16 @@ pub fn series_benchmark(c: &mut Criterion) {
     // TODO: reconsider these params?
     group.sampling_mode(SamplingMode::Flat);
     group.sample_size(10);
-    group.throughput(Throughput::Elements(TEST_PARALLELISM));
+    group.throughput(Throughput::Elements(
+        TEST_PARALLELISM_SERIES * DATA_LEN_SERIES as u64,
+    ));
     group.bench_with_input(
-        BenchmarkId::new("series_benchmark", 1),
+        BenchmarkId::new("SERIES_benchmark", TEST_PARALLELISM_SERIES),
         &channel,
         |b, chan| b.to_async(&runtime).iter(|| spam_series(chan.clone())),
     );
     group.finish();
 }
 
-criterion_group!(benches, series_benchmark);
+criterion_group!(benches, single_benchmark, series_benchmark);
 criterion_main!(benches);
