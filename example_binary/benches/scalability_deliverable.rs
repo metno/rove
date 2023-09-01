@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
+use criterion::{
+    criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
+};
 use example_binary::construct_hardcoded_dag;
 use rove::{
     data_switch,
@@ -119,8 +121,10 @@ pub fn series_benchmark(c: &mut Criterion) {
     let (channel, _server_handle) = spawn_server(&runtime);
 
     let mut group = c.benchmark_group("series_benchmark");
+    // TODO: reconsider these params?
     group.sampling_mode(SamplingMode::Flat);
     group.sample_size(10);
+    group.throughput(Throughput::Elements(1));
     group.bench_with_input(
         BenchmarkId::new("series_benchmark", 1),
         &channel,
