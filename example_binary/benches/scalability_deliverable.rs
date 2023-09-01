@@ -7,7 +7,7 @@ use example_binary::construct_hardcoded_dag;
 use rove::{
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::{rove_client::RoveClient, ValidateSeriesRequest},
+    pb::{rove_client::RoveClient, ValidateSeriesRequest, ValidateSpatialRequest},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -23,8 +23,10 @@ use tower::service_fn;
 
 const TEST_PARALLELISM_SINGLE: u64 = 100;
 const TEST_PARALLELISM_SERIES: u64 = 10;
+const TEST_PARALLELISM_SPATIAL: u64 = 10;
 const DATA_LEN_SINGLE: usize = 3;
 const DATA_LEN_SERIES: usize = 10000;
+const DATA_LEN_SPATIAL: usize = 10000;
 
 #[derive(Debug)]
 struct BenchDataSource;
@@ -58,7 +60,12 @@ impl DataSource for BenchDataSource {
         &self,
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
-        unimplemented!()
+        black_box(Ok(SpatialCache::new(
+            vec![1.; DATA_LEN_SPATIAL],
+            vec![1.; DATA_LEN_SPATIAL],
+            vec![1.; DATA_LEN_SPATIAL],
+            vec![1.; DATA_LEN_SPATIAL],
+        )))
     }
 }
 
@@ -175,6 +182,43 @@ async fn spam_series(channel: Channel) {
     }
 }
 
+async fn spam_spatial(channel: Channel) {
+    // TODO: this client is redundant?
+    let client = RoveClient::new(channel);
+
+    let mut resps = JoinSet::new();
+
+    for _ in 0..TEST_PARALLELISM_SPATIAL {
+        let mut client = client.clone();
+        let req = ValidateSpatialRequest {
+            data_source: String::from("bench"),
+            backing_sources: Vec::new(),
+            tests: vec!["buddy_check".to_string(), "sct".to_string()],
+            time: Some(prost_types::Timestamp::default()),
+            polygon: Vec::new(),
+        };
+
+        resps.spawn(tokio::spawn(
+            async move { client.validate_spatial(req).await },
+        ));
+    }
+
+    while let Some(resp) = resps.join_next().await {
+        let mut stream = resp.unwrap().unwrap().unwrap().into_inner();
+
+        let mut recv_count = 0;
+        while let Some(_recv) = stream.next().await {
+            // assert_eq!(
+            //     // TODO: improve
+            //     recv.unwrap().results.first().unwrap().flag,
+            //     Flag::Inconclusive as i32
+            // );
+            recv_count += 1;
+        }
+        assert_eq!(recv_count, 2);
+    }
+}
+
 pub fn single_benchmark(c: &mut Criterion) {
     let runtime = Runtime::new().unwrap();
 
@@ -206,12 +250,37 @@ pub fn series_benchmark(c: &mut Criterion) {
         TEST_PARALLELISM_SERIES * DATA_LEN_SERIES as u64,
     ));
     group.bench_with_input(
-        BenchmarkId::new("SERIES_benchmark", TEST_PARALLELISM_SERIES),
+        BenchmarkId::new("series_benchmark", TEST_PARALLELISM_SERIES),
         &channel,
         |b, chan| b.to_async(&runtime).iter(|| spam_series(chan.clone())),
     );
     group.finish();
 }
 
-criterion_group!(benches, single_benchmark, series_benchmark);
+pub fn spatial_benchmark(c: &mut Criterion) {
+    let runtime = Runtime::new().unwrap();
+
+    let (channel, _server_handle) = spawn_server(&runtime);
+
+    let mut group = c.benchmark_group("spatial_benchmark");
+    // TODO: reconsider these params?
+    group.sampling_mode(SamplingMode::Flat);
+    group.sample_size(10);
+    group.throughput(Throughput::Elements(
+        TEST_PARALLELISM_SPATIAL * DATA_LEN_SPATIAL as u64,
+    ));
+    group.bench_with_input(
+        BenchmarkId::new("spatial_benchmark", TEST_PARALLELISM_SPATIAL),
+        &channel,
+        |b, chan| b.to_async(&runtime).iter(|| spam_spatial(chan.clone())),
+    );
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    single_benchmark,
+    series_benchmark,
+    spatial_benchmark
+);
 criterion_main!(benches);
