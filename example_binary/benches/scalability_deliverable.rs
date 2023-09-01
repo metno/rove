@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use criterion::{
-    criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
+    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
 use example_binary::construct_hardcoded_dag;
 use rove::{
@@ -34,12 +34,12 @@ impl DataSource for BenchDataSource {
         _timespec: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        Ok(SeriesCache {
+        black_box(Ok(SeriesCache {
             start_time: Timestamp(0),
             period: RelativeDuration::minutes(5),
             data: vec![Some(1.), Some(1.), Some(1.)],
             num_leading_points,
-        })
+        }))
     }
 
     async fn get_spatial_data(
