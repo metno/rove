@@ -8,14 +8,13 @@ use rove::{
     pb::{rove_client::RoveClient, ValidateSeriesRequest},
     server::{start_server, ListenerType},
 };
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    thread::{self, JoinHandle},
-};
+use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
-use tokio::net::{UnixListener, UnixStream};
-use tokio::runtime::Runtime;
+use tokio::{
+    net::{UnixListener, UnixStream},
+    runtime::Runtime,
+    task::JoinHandle,
+};
 use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
@@ -47,10 +46,8 @@ impl DataSource for BenchDataSource {
     }
 }
 
-fn spawn_server() -> (Channel, JoinHandle<()>) {
-    let server_runtime = Runtime::new().unwrap();
-
-    let (channel, server_future) = server_runtime.block_on(async {
+fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {
+    let (channel, server_future) = runtime.block_on(async {
         let data_switch = DataSwitch::new(HashMap::from([(
             "test",
             &BenchDataSource as &dyn DataSource,
@@ -84,27 +81,23 @@ fn spawn_server() -> (Channel, JoinHandle<()>) {
         )
     });
 
-    let join_handle = thread::spawn(move || server_runtime.block_on(server_future));
+    // TODO: would there be a point in selecting against this in the benches?
+    let join_handle = runtime.spawn(server_future);
 
     (channel, join_handle)
-
-    // tokio::select! {
-    //     _ = coordinator_future => panic!("coordinator returned first"),
-    //     _ = request_future => (),
-    // }
 }
 
 async fn spam_series(channel: Channel) {
-    // let request_future = async {
-    //     let mut stream = client
-    //         .validate_series(ValidateSeriesRequest {
-    //             series_id: String::from("test:1"),
-    //             tests: vec![String::from("test1")],
-    //             start_time: Some(prost_types::Timestamp::default()),
-    //             end_time: Some(prost_types::Timestamp::default()),
-    //         })
-    //         .await
-    //         .unwrap()
+    let req = ValidateSeriesRequest {
+        series_id: String::from("test:1"),
+        tests: vec!["step_check".to_string(), "dip_check".to_string()],
+        start_time: Some(prost_types::Timestamp::default()),
+        end_time: Some(prost_types::Timestamp::default()),
+    };
+
+    let mut client = RoveClient::new(channel);
+
+    client.validate_series(req).await.unwrap();
     //         .into_inner();
 
     //     let mut recv_count = 0;
@@ -118,41 +111,12 @@ async fn spam_series(channel: Channel) {
     //     }
     //     assert_eq!(recv_count, 6);
     // };
-
-    // let req = ValidateSeriesRequest {
-    //     series_id: "frost:18700/air_temperature".to_string(),
-    //     start_time: Some(prost_types::Timestamp {
-    //         seconds: Utc
-    //             .with_ymd_and_hms(2021, 6, 26, 12, 0, 0)
-    //             .unwrap()
-    //             .timestamp(),
-    //         nanos: 0,
-    //     }),
-    //     end_time: Some(prost_types::Timestamp {
-    //         seconds: Utc
-    //             .with_ymd_and_hms(2023, 6, 26, 14, 0, 0)
-    //             .unwrap()
-    //             .timestamp(),
-    //         nanos: 0,
-    //     }),
-    //     tests: vec!["step_check".to_string(), "dip_check".to_string()],
-    // };
-
-    let req = ValidateSeriesRequest {
-        series_id: String::from("test:1"),
-        tests: vec!["step_check".to_string(), "dip_check".to_string()],
-        start_time: Some(prost_types::Timestamp::default()),
-        end_time: Some(prost_types::Timestamp::default()),
-    };
-
-    // let mut client = RoveClient::connect("http://[::1]:1337").await.unwrap();
-    let mut client = RoveClient::new(channel);
-
-    client.validate_series(req).await.unwrap();
 }
 
 pub fn series_benchmark(c: &mut Criterion) {
-    let (channel, _server_handle) = spawn_server();
+    let runtime = Runtime::new().unwrap();
+
+    let (channel, _server_handle) = spawn_server(&runtime);
 
     let mut group = c.benchmark_group("series_benchmark");
     group.sampling_mode(SamplingMode::Flat);
@@ -160,11 +124,7 @@ pub fn series_benchmark(c: &mut Criterion) {
     group.bench_with_input(
         BenchmarkId::new("series_benchmark", 1),
         &channel,
-        |b, chan| {
-            // TODO: figure out how to reuse runtime?
-            b.to_async(Runtime::new().unwrap())
-                .iter(|| spam_series(chan.clone()))
-        },
+        |b, chan| b.to_async(&runtime).iter(|| spam_series(chan.clone())),
     );
     group.finish();
 }
