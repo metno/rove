@@ -542,6 +542,7 @@ dependencies = [
  "chrono",
  "chronoutil",
  "criterion",
+ "dagmar",
  "frost",
  "lustre_netatmo",
  "prost-types",

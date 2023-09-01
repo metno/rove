@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
+use example_binary::construct_hardcoded_dag;
 use rove::{
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
@@ -33,7 +34,7 @@ impl DataSource for BenchDataSource {
         Ok(SeriesCache {
             start_time: Timestamp(0),
             period: RelativeDuration::minutes(5),
-            data: Vec::new(),
+            data: vec![Some(1.), Some(1.), Some(1.)],
             num_leading_points,
         })
     }
@@ -61,9 +62,13 @@ fn spawn_server() -> (Channel, JoinHandle<()>) {
         let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
         let coordintor_stream = UnixListenerStream::new(coordintor_uds);
         let coordinator_future = async {
-            start_server(ListenerType::UnixListener(coordintor_stream), data_switch)
-                .await
-                .unwrap();
+            start_server(
+                ListenerType::UnixListener(coordintor_stream),
+                data_switch,
+                construct_hardcoded_dag(),
+            )
+            .await
+            .unwrap();
         };
 
         (
@@ -135,7 +140,7 @@ async fn spam_series(channel: Channel) {
 
     let req = ValidateSeriesRequest {
         series_id: String::from("test:1"),
-        tests: vec![String::from("test1")],
+        tests: vec!["step_check".to_string(), "dip_check".to_string()],
         start_time: Some(prost_types::Timestamp::default()),
         end_time: Some(prost_types::Timestamp::default()),
     };

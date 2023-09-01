@@ -10,6 +10,7 @@ rove = { path = "../rove" }
 tokio = { version = "1.18.2", features = ["full"] }
 frost = { path = "../frost" }
 lustre_netatmo = { path = "../lustre_netatmo" }
+dagmar = { git = "https://github.com/intarga/dagmar" }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["async_tokio"] }

@@ -327,36 +327,10 @@ impl Rove for RoveService<'static> {
     }
 }
 
-fn construct_fake_dag() -> Dag<String> {
-    let mut dag: Dag<String> = Dag::new();
-
-    let test6 = dag.add_node(String::from("test6"));
-
-    let test4 = dag.add_node_with_children(String::from("test4"), vec![test6]);
-    let test5 = dag.add_node_with_children(String::from("test5"), vec![test6]);
-
-    let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
-    let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
-
-    let _test1 = dag.add_node_with_children(String::from("test1"), vec![test2, test3]);
-
-    dag
-}
-
-fn construct_hardcoded_dag() -> Dag<String> {
-    let mut dag: Dag<String> = Dag::new();
-
-    dag.add_node(String::from("dip_check"));
-    dag.add_node(String::from("step_check"));
-    dag.add_node(String::from("buddy_check"));
-    dag.add_node(String::from("sct"));
-
-    dag
-}
-
 pub async fn start_server(
     listener: ListenerType,
     data_switch: DataSwitch<'static>,
+    dag: Dag<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
@@ -364,7 +338,7 @@ pub async fn start_server(
                 .with_max_level(tracing::Level::WARN)
                 .init();
 
-            let rove_service = RoveService::new(construct_hardcoded_dag(), data_switch);
+            let rove_service = RoveService::new(dag, data_switch);
 
             tracing::info!(message = "Starting server.", %addr);
 
@@ -375,7 +349,7 @@ pub async fn start_server(
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let rove_service = RoveService::new(construct_fake_dag(), data_switch);
+            let rove_service = RoveService::new(dag, data_switch);
 
             Server::builder()
                 .add_service(RoveServer::new(rove_service))
@@ -390,6 +364,22 @@ pub async fn start_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn construct_fake_dag() -> Dag<String> {
+        let mut dag: Dag<String> = Dag::new();
+
+        let test6 = dag.add_node(String::from("test6"));
+
+        let test4 = dag.add_node_with_children(String::from("test4"), vec![test6]);
+        let test5 = dag.add_node_with_children(String::from("test5"), vec![test6]);
+
+        let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
+        let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
+
+        let _test1 = dag.add_node_with_children(String::from("test1"), vec![test2, test3]);
+
+        dag
+    }
 
     #[test]
     fn test_construct_subdag() {
