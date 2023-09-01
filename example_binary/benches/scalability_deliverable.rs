@@ -15,11 +15,13 @@ use tempfile::NamedTempFile;
 use tokio::{
     net::{UnixListener, UnixStream},
     runtime::Runtime,
-    task::JoinHandle,
+    task::{JoinHandle, JoinSet},
 };
-use tokio_stream::wrappers::UnixListenerStream;
+use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
+
+const TEST_PARALLELISM: u64 = 100;
 
 #[derive(Debug)]
 struct BenchDataSource;
@@ -90,29 +92,39 @@ fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {
 }
 
 async fn spam_series(channel: Channel) {
-    let req = ValidateSeriesRequest {
-        series_id: String::from("test:1"),
-        tests: vec!["step_check".to_string(), "dip_check".to_string()],
-        start_time: Some(prost_types::Timestamp::default()),
-        end_time: Some(prost_types::Timestamp::default()),
-    };
+    // TODO: this client is redundant?
+    let client = RoveClient::new(channel);
 
-    let mut client = RoveClient::new(channel);
+    let mut resps = JoinSet::new();
 
-    client.validate_series(req).await.unwrap();
-    //         .into_inner();
+    for _ in 0..TEST_PARALLELISM {
+        let mut client = client.clone();
+        let req = ValidateSeriesRequest {
+            series_id: String::from("test:1"),
+            tests: vec!["step_check".to_string(), "dip_check".to_string()],
+            start_time: Some(prost_types::Timestamp::default()),
+            end_time: Some(prost_types::Timestamp::default()),
+        };
 
-    //     let mut recv_count = 0;
-    //     while let Some(recv) = stream.next().await {
-    //         assert_eq!(
-    //             // TODO: improve
-    //             recv.unwrap().results.first().unwrap().flag,
-    //             Flag::Inconclusive as i32
-    //         );
-    //         recv_count += 1;
-    //     }
-    //     assert_eq!(recv_count, 6);
-    // };
+        resps.spawn(tokio::spawn(
+            async move { client.validate_series(req).await },
+        ));
+    }
+
+    while let Some(resp) = resps.join_next().await {
+        let mut stream = resp.unwrap().unwrap().unwrap().into_inner();
+
+        let mut recv_count = 0;
+        while let Some(_recv) = stream.next().await {
+            // assert_eq!(
+            //     // TODO: improve
+            //     recv.unwrap().results.first().unwrap().flag,
+            //     Flag::Inconclusive as i32
+            // );
+            recv_count += 1;
+        }
+        assert_eq!(recv_count, 2);
+    }
 }
 
 pub fn series_benchmark(c: &mut Criterion) {
@@ -124,7 +136,7 @@ pub fn series_benchmark(c: &mut Criterion) {
     // TODO: reconsider these params?
     group.sampling_mode(SamplingMode::Flat);
     group.sample_size(10);
-    group.throughput(Throughput::Elements(1));
+    group.throughput(Throughput::Elements(TEST_PARALLELISM));
     group.bench_with_input(
         BenchmarkId::new("series_benchmark", 1),
         &channel,
