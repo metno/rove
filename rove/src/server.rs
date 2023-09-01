@@ -361,7 +361,7 @@ pub async fn start_server(
     match listener {
         ListenerType::Addr(addr) => {
             tracing_subscriber::fmt()
-                .with_max_level(tracing::Level::DEBUG)
+                .with_max_level(tracing::Level::WARN)
                 .init();
 
             let rove_service = RoveService::new(construct_hardcoded_dag(), data_switch);
