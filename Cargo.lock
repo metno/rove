@@ -538,14 +538,19 @@ dependencies = [
 name = "example_binary"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
+ "chronoutil",
  "criterion",
  "frost",
  "lustre_netatmo",
  "prost-types",
  "rove",
+ "tempfile",
  "tokio",
+ "tokio-stream",
  "tonic",
+ "tower",
 ]
 
 [[package]]
