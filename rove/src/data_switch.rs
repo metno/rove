@@ -72,7 +72,7 @@ pub trait DataSource: Sync + std::fmt::Debug {
     async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
-        element: &str,
+        spatial_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error>;
 }
@@ -112,12 +112,12 @@ impl<'ds> DataSwitch<'ds> {
     pub async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
-        extra_spec: &str,
+        spatial_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {
-        let (data_source_id, data_id) = extra_spec
+        let (data_source_id, data_id) = spatial_id
             .split_once(':')
-            .ok_or_else(|| Error::InvalidSeriesId(extra_spec.to_string()))?;
+            .ok_or_else(|| Error::InvalidSeriesId(spatial_id.to_string()))?;
 
         let data_source = self
             .sources

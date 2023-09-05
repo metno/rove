@@ -304,7 +304,7 @@ impl Coordinator for MyCoordinator<'static> {
             .data_switch
             .get_spatial_data(
                 req.polygon,
-                req.extra_spec.as_str(),
+                req.spatial_id.as_str(),
                 Timestamp(
                     req.time
                         .as_ref()

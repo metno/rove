@@ -114,10 +114,10 @@ impl DataSource for Frost {
     async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
-        extra_spec: &str,
+        data_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
-        spatial::get_spatial_data_inner(polygon, extra_spec, timestamp)
+        spatial::get_spatial_data_inner(polygon, data_id, timestamp)
             .await
             .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
     }
