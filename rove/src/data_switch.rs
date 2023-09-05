@@ -1,4 +1,4 @@
-use crate::pb::util::GeoPoint;
+use crate::pb::GeoPoint;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::SpatialTree;

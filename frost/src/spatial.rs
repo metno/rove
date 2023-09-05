@@ -2,7 +2,7 @@ use crate::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
 use rove::{
     data_switch::{SpatialCache, Timestamp},
-    pb::util::GeoPoint,
+    pb::GeoPoint,
 };
 
 fn extract_metadata(

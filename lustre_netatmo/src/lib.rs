@@ -3,7 +3,7 @@ use chrono::prelude::*;
 use rove::{
     data_switch,
     data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::util::GeoPoint,
+    pb::GeoPoint,
 };
 use serde::Deserialize;
 use std::{fs::File, io};
