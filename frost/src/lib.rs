@@ -3,6 +3,7 @@ use chrono::prelude::*;
 use rove::{
     data_switch,
     data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
+    pb::GeoPoint,
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
@@ -10,6 +11,7 @@ use thiserror::Error;
 // TODO: move duration into series?
 mod duration;
 mod series;
+mod spatial;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -20,7 +22,9 @@ pub enum Error {
     Request(#[from] reqwest::Error),
     #[error("failed to find obs in json body: {0}")]
     FindObs(String),
-    #[error("failed to deserialise obs to struct")]
+    #[error("failed to find location in json body: {0}")]
+    FindLocation(String),
+    #[error("failed to deserialise data to struct")]
     DeserializeObs(#[from] serde_json::Error),
     #[error("failed to find metadata in json body: {0}")]
     FindMetadata(String),
@@ -50,6 +54,26 @@ struct FrostObs {
     body: FrostObsBody,
     #[serde(deserialize_with = "des_time")]
     time: DateTime<Utc>,
+}
+
+#[derive(Deserialize, Debug)]
+struct FrostLatLonElev {
+    #[serde(rename = "elevation(masl/hs)")]
+    #[serde(deserialize_with = "des_value")]
+    elevation: f32,
+    #[serde(deserialize_with = "des_value")]
+    latitude: f32,
+    #[serde(deserialize_with = "des_value")]
+    longitude: f32,
+}
+
+#[derive(Deserialize, Debug)]
+struct FrostLocation {
+    #[serde(deserialize_with = "des_time")]
+    from: DateTime<Utc>,
+    #[serde(deserialize_with = "des_time")]
+    to: DateTime<Utc>,
+    value: FrostLatLonElev,
 }
 
 fn des_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
@@ -89,8 +113,12 @@ impl DataSource for Frost {
 
     async fn get_spatial_data(
         &self,
-        _timestamp: Timestamp,
+        polygon: Vec<GeoPoint>,
+        data_id: &str,
+        timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
-        todo!()
+        spatial::get_spatial_data_inner(polygon, data_id, timestamp)
+            .await
+            .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
     }
 }
