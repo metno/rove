@@ -1,7 +1,7 @@
 use crate::pb::util::GeoPoint;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
-use olympian::points::{CoordinateType, Points};
+use olympian::SpatialTree;
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -43,17 +43,15 @@ pub struct SeriesCache {
 }
 
 pub struct SpatialCache {
-    pub rtree: Points,
+    pub rtree: SpatialTree,
     pub data: Vec<f32>,
 }
 
 impl SpatialCache {
     pub fn new(lats: Vec<f32>, lons: Vec<f32>, elevs: Vec<f32>, values: Vec<f32>) -> Self {
         // TODO: ensure vecs have same size
-        // TODO: figure out what to do about lafs and ctype
-        let n = values.len();
         Self {
-            rtree: Points::from_latlons(lats, lons, elevs, vec![0.; n], CoordinateType::Cartesian),
+            rtree: SpatialTree::from_latlons(lats, lons, elevs),
             data: values,
         }
     }

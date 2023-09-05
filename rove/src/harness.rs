@@ -1,15 +1,12 @@
 use crate::{
     data_switch::{SeriesCache, SpatialCache},
     pb::{
-        coordinator::{
-            SeriesTestResult, SpatialTestResult, ValidateSeriesResponse, ValidateSpatialResponse,
-        },
-        util::{Flag, GeoPoint},
+        Flag, GeoPoint, SeriesTestResult, SpatialTestResult, ValidateSeriesResponse,
+        ValidateSpatialResponse,
     },
 };
 use chrono::prelude::*;
 use chronoutil::DateRule;
-use olympian::qc_tests::dip_check;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
@@ -17,6 +14,10 @@ use thiserror::Error;
 pub enum Error {
     #[error("test name {0} not found in runner")]
     InvalidTestName(String),
+    #[error("failed to run test")]
+    TestFailed(#[from] olympian::Error),
+    #[error("unknown olympian flag: {0}")]
+    UnknownFlag(String),
 }
 
 pub async fn run_test_series(
@@ -30,11 +31,25 @@ pub async fn run_test_series(
 
             // TODO: use actual test params
             // TODO: use par_iter?
-            // TODO: do something about that unwrap?
             cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
                 .windows((LEADING_PER_RUN + 1).into())
-                .map(|window| dip_check(window, 2., 3.).unwrap().into())
-                .collect()
+                .map(|window| {
+                    olympian::dip_check(window, 2., 3.)?
+                        .try_into()
+                        .map_err(Error::UnknownFlag)
+                })
+                .collect::<Result<Vec<Flag>, Error>>()?
+        }
+        "step_check" => {
+            const LEADING_PER_RUN: u8 = 1;
+            cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
+                .windows((LEADING_PER_RUN + 1).into())
+                .map(|window| {
+                    olympian::step_check(window, 2., 3.)?
+                        .try_into()
+                        .map_err(Error::UnknownFlag)
+                })
+                .collect::<Result<Vec<Flag>, Error>>()?
         }
         _ => {
             if test.starts_with("test") {
@@ -73,6 +88,47 @@ pub async fn run_test_spatial(
     cache: &SpatialCache,
 ) -> Result<ValidateSpatialResponse, Error> {
     let flags: Vec<Flag> = match test {
+        "buddy_check" => {
+            let n = cache.data.len();
+            olympian::buddy_check(
+                &cache.rtree,
+                &cache.data,
+                &vec![0.; n],
+                &vec![0; n],
+                0.,
+                0.,
+                0.,
+                0.,
+                0,
+                &vec![true; n],
+            )?
+            .into_iter()
+            .map(|flag| flag.try_into().map_err(Error::UnknownFlag))
+            .collect::<Result<Vec<Flag>, Error>>()?
+        }
+        "sct" => {
+            let n = cache.data.len();
+            olympian::sct(
+                &cache.rtree,
+                &cache.data,
+                0,
+                0,
+                0.,
+                0.,
+                0,
+                0,
+                0.,
+                0.,
+                0.,
+                &vec![0.; n],
+                &vec![0.; n],
+                &vec![0.; n],
+                None,
+            )?
+            .into_iter()
+            .map(|flag| flag.try_into().map_err(Error::UnknownFlag))
+            .collect::<Result<Vec<Flag>, Error>>()?
+        }
         _ => {
             if test.starts_with("test") {
                 vec![Flag::Inconclusive]

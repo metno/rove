@@ -1,13 +1,27 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
-import "util.proto";
 
-package coordinator;
+package rove;
 
-service Coordinator {
+service Rove {
   rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateSeriesResponse) {}
   rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {}
+}
+
+message GeoPoint {
+  float lat = 1;
+  float lon = 2;
+}
+
+enum Flag { // WIP
+  PASS = 0;
+  FAIL = 1;
+  WARN = 2;
+  INCONCLUSIVE = 3;
+  INVALID = 4;
+  DATA_MISSING = 5;
+  ISOLATED = 6;
 }
 
 // tests a time series between start_time and end_time
@@ -37,12 +51,12 @@ message ValidateSpatialRequest {
   google.protobuf.Timestamp time = 3;
   repeated string tests = 4;
   // if not provided, the whole globe will be used
-  repeated util.GeoPoint polygon = 5;
+  repeated GeoPoint polygon = 5;
 }
 
 message SeriesTestResult {
   google.protobuf.Timestamp time = 1;
-  util.Flag flag = 2;
+  Flag flag = 2;
 }
 
 message ValidateSeriesResponse {
@@ -55,8 +69,8 @@ message ValidateSeriesResponse {
 
 message SpatialTestResult {
   // TODO: maybe this should contain the series ID?
-  util.GeoPoint location = 1;
-  util.Flag flag = 2;
+  GeoPoint location = 1;
+  Flag flag = 2;
 }
 
 message ValidateSpatialResponse {
