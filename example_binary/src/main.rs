@@ -1,3 +1,4 @@
+use example_binary::construct_hardcoded_dag;
 use frost::Frost;
 use lustre_netatmo::LustreNetatmo;
 use rove::{
@@ -14,5 +15,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("lustre_netatmo", &LustreNetatmo as &dyn DataSource),
     ]));
 
-    start_server(ListenerType::Addr("[::1]:1337".parse()?), data_switch).await
+    start_server(
+        ListenerType::Addr("[::1]:1337".parse()?),
+        data_switch,
+        construct_hardcoded_dag(),
+    )
+    .await
 }
