@@ -3,7 +3,7 @@ use chronoutil::RelativeDuration;
 use rove::{
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest},
+    pb::{rove_client::RoveClient, Flag, GeoPoint, ValidateSeriesRequest},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -34,6 +34,8 @@ impl DataSource for TestDataSource {
 
     async fn get_spatial_data(
         &self,
+        _polygon: Vec<GeoPoint>,
+        _extra_spec: &str,
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         unimplemented!()
