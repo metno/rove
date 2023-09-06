@@ -26,7 +26,7 @@ const TEST_PARALLELISM_SERIES: u64 = 10;
 const TEST_PARALLELISM_SPATIAL: u64 = 10;
 const DATA_LEN_SINGLE: usize = 3;
 const DATA_LEN_SERIES: usize = 10000;
-const DATA_LEN_SPATIAL: usize = 10000;
+const DATA_LEN_SPATIAL: usize = 1000;
 
 #[derive(Debug)]
 struct BenchDataSource;
@@ -61,8 +61,12 @@ impl DataSource for BenchDataSource {
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         black_box(Ok(SpatialCache::new(
-            vec![1.; DATA_LEN_SPATIAL],
-            vec![1.; DATA_LEN_SPATIAL],
+            (0..DATA_LEN_SPATIAL)
+                .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
+                .collect(),
+            (0..DATA_LEN_SPATIAL)
+                .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
+                .collect(),
             vec![1.; DATA_LEN_SPATIAL],
             vec![1.; DATA_LEN_SPATIAL],
         )))
