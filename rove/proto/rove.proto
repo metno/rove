@@ -41,8 +41,10 @@ message ValidateSeriesRequest {
 // tests a time slice with optional list of data sources to use, and a list of
 // coordinates that define a polygon representing the area to be tested
 message ValidateSpatialRequest {
-  // data source for data to quality control
-  string data_source = 1;
+  // resource locator of the form <data source>:<source-specific identifier>
+  // e.g. frost:air_temperature where frost is a data source known to the system,
+  // and air_temperature is the element for the call to get data
+  string spatial_id = 1;
   // extra data sources providing data to help qc the first source, but he data
   // from these sources will not be qced themselves
   repeated string backing_sources = 2;

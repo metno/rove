@@ -303,7 +303,8 @@ impl Rove for RoveService<'static> {
         let data = self
             .data_switch
             .get_spatial_data(
-                req.data_source.as_str(),
+                req.polygon,
+                req.spatial_id.as_str(),
                 Timestamp(
                     req.time
                         .as_ref()

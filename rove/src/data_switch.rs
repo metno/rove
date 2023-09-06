@@ -1,3 +1,4 @@
+use crate::pb::GeoPoint;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::SpatialTree;
@@ -66,7 +67,12 @@ pub trait DataSource: Sync + std::fmt::Debug {
     ) -> Result<SeriesCache, Error>;
 
     // TODO: add a str param for extra specification?
-    async fn get_spatial_data(&self, timestamp: Timestamp) -> Result<SpatialCache, Error>;
+    async fn get_spatial_data(
+        &self,
+        polygon: Vec<GeoPoint>,
+        spatial_id: &str,
+        timestamp: Timestamp,
+    ) -> Result<SpatialCache, Error>;
 }
 
 #[derive(Debug)]
@@ -103,14 +109,21 @@ impl<'ds> DataSwitch<'ds> {
     // TODO: handle backing sources
     pub async fn get_spatial_data(
         &self,
-        source_id: &str,
+        polygon: Vec<GeoPoint>,
+        spatial_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {
+        let (data_source_id, data_id) = spatial_id
+            .split_once(':')
+            .ok_or_else(|| Error::InvalidSeriesId(spatial_id.to_string()))?;
+
         let data_source = self
             .sources
-            .get(source_id)
-            .ok_or_else(|| Error::InvalidDataSource(source_id.to_string()))?;
+            .get(data_source_id)
+            .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
-        data_source.get_spatial_data(timestamp).await
+        data_source
+            .get_spatial_data(polygon, data_id, timestamp)
+            .await
     }
 }
