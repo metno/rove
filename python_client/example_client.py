@@ -54,7 +54,13 @@ def send_spatial(stub):
     for response in responses:
         print("Test name: ", response.test, "\n")
         for result in response.results:
-            # print("    Time: ", datetime.fromtimestamp(result.time.seconds, tz=timezone.utc))
+            print(
+                "    location: (lat: ",
+                result.location.lat,
+                " lon: ",
+                result.location.lon,
+                ")",
+            )
             print("    Flag: ", rove.Flag.Name(result.flag), "\n")
 
 
