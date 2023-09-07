@@ -37,7 +37,7 @@ def send_spatial(stub):
     time = ts.Timestamp(
         seconds=int(datetime(2023, 6, 26, hour=14, tzinfo=timezone.utc).timestamp())
     )
-    tests = ["dip_check", "step_check"]
+    tests = ["buddy_check", "sct"]
     polygon = [
         rove.GeoPoint(lat=59.93, lon=10.05),
         rove.GeoPoint(lat=59.93, lon=11.0),
