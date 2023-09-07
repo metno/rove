@@ -126,7 +126,7 @@ pub async fn get_spatial_data_inner(
     let polygon_string = parse_polygon(polygon);
 
     let resp: serde_json::Value = client
-        .get("https://v1.frost-dev.k8s.met.no//api/v1/obs/met.no/filter/get")
+        .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
         .query(&[
             ("polygon", polygon_string),
             ("elementids", elementids),

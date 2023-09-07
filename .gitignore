@@ -2,4 +2,5 @@
 *.pb.go
 *.pb.cc
 *.pb.h
+python_client/proto/*
 docs/plantuml.jar
