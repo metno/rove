@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
+use dagmar::Dag;
 use rove::{
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
@@ -42,6 +43,22 @@ impl DataSource for TestDataSource {
     }
 }
 
+fn construct_fake_dag() -> Dag<String> {
+    let mut dag: Dag<String> = Dag::new();
+
+    let test6 = dag.add_node(String::from("test6"));
+
+    let test4 = dag.add_node_with_children(String::from("test4"), vec![test6]);
+    let test5 = dag.add_node_with_children(String::from("test5"), vec![test6]);
+
+    let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
+    let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
+
+    let _test1 = dag.add_node_with_children(String::from("test1"), vec![test2, test3]);
+
+    dag
+}
+
 #[tokio::test]
 async fn integration_test() {
     // tracing_subscriber::fmt()
@@ -59,9 +76,13 @@ async fn integration_test() {
     let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
     let coordintor_stream = UnixListenerStream::new(coordintor_uds);
     let coordinator_future = async {
-        start_server(ListenerType::UnixListener(coordintor_stream), data_switch)
-            .await
-            .unwrap();
+        start_server(
+            ListenerType::UnixListener(coordintor_stream),
+            data_switch,
+            construct_fake_dag(),
+        )
+        .await
+        .unwrap();
     };
 
     let coordinator_channel = Endpoint::try_from("http://any.url")
