@@ -1,0 +1,10 @@
+[Unit]
+Description=rove service
+
+[Service]
+User=rove
+Group=rove
+ExecStart=/usr/local/bin/rove
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+---
+- name: Start rove
+  systemd:
+    name: rove
+    state: started
+    enabled: yes

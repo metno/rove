@@ -1,0 +1,33 @@
+---
+- name: Create rove group
+  group:
+    name: rove
+    state: present
+
+- name: Create rove user
+  user:
+    name: rove
+    groups: rove
+    shell: /sbin/nologin
+    append: yes
+    state: present
+    create_home: no
+
+- name: Copy systemd service file to server
+  copy:
+    src: rove.service
+    dest: /etc/systemd/system
+    owner: root
+    group: root
+  notify:
+    - Start rove
+
+- name: Copy binary to server
+  copy:
+    src: rove_bin
+    dest: /usr/local/bin/rove
+    mode: 0755
+    owner: root
+    group: root
+  notify:
+    - Start rove

@@ -4,3 +4,4 @@
 *.pb.h
 python_client/proto/*
 docs/plantuml.jar
+ansible/roles/deploy/files/rove_bin
