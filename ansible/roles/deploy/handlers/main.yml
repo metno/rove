@@ -2,5 +2,5 @@
 - name: Start rove
   systemd:
     name: rove
-    state: started
+    state: restarted
     enabled: yes
