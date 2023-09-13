@@ -240,7 +240,7 @@ impl Rove for RoveService<'static> {
         &self,
         request: Request<ValidateSeriesRequest>,
     ) -> Result<Response<Self::ValidateSeriesStream>, Status> {
-        tracing::info!("Got a request: {:?}", request);
+        tracing::debug!("Got a request: {:?}", request);
 
         let req = request.into_inner();
 
@@ -290,7 +290,7 @@ impl Rove for RoveService<'static> {
         &self,
         request: Request<ValidateSpatialRequest>,
     ) -> Result<Response<Self::ValidateSpatialStream>, Status> {
-        tracing::info!("Got a request: {:?}", request);
+        tracing::debug!("Got a request: {:?}", request);
 
         let req = request.into_inner();
 
