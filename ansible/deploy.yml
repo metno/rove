@@ -1,0 +1,6 @@
+---
+- hosts: ostack_rove
+  become: yes
+  become_user: root
+  roles:
+    - deploy

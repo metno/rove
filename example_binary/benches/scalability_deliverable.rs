@@ -7,7 +7,7 @@ use example_binary::construct_hardcoded_dag;
 use rove::{
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::{rove_client::RoveClient, ValidateSeriesRequest, ValidateSpatialRequest},
+    pb::{rove_client::RoveClient, GeoPoint, ValidateSeriesRequest, ValidateSpatialRequest},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -58,6 +58,8 @@ impl DataSource for BenchDataSource {
 
     async fn get_spatial_data(
         &self,
+        _polygon: Vec<GeoPoint>,
+        _spatial_id: &str,
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         black_box(Ok(SpatialCache::new(
@@ -195,7 +197,7 @@ async fn spam_spatial(channel: Channel) {
     for _ in 0..TEST_PARALLELISM_SPATIAL {
         let mut client = client.clone();
         let req = ValidateSpatialRequest {
-            data_source: String::from("bench"),
+            spatial_id: String::from("bench:spatial"),
             backing_sources: Vec::new(),
             tests: vec!["buddy_check".to_string(), "sct".to_string()],
             time: Some(prost_types::Timestamp::default()),

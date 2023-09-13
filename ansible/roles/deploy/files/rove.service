@@ -1,0 +1,10 @@
+[Unit]
+Description=rove service
+
+[Service]
+User=rove
+Group=rove
+ExecStart=/usr/local/bin/rove --address 192.168.10.185:1337
+
+[Install]
+WantedBy=multi-user.target

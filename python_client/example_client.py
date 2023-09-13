@@ -63,7 +63,7 @@ def send_spatial(stub):
 
 
 def main():
-    channel = grpc.insecure_channel("localhost:1337")
+    channel = grpc.insecure_channel("157.249.77.242:1337")
     stub = rove_grpc.RoveStub(channel)
 
     send_series(stub)

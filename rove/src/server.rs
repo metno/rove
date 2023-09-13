@@ -335,10 +335,6 @@ pub async fn start_server(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
-            tracing_subscriber::fmt()
-                .with_max_level(tracing::Level::WARN)
-                .init();
-
             let rove_service = RoveService::new(dag, data_switch);
 
             tracing::info!(message = "Starting server.", %addr);

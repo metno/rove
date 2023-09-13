@@ -1,0 +1,13 @@
+---
+- name: Restart rove
+  systemd:
+    name: rove
+    state: restarted
+    enabled: yes
+
+- name: Reload daemon
+  systemd:
+    daemon_reload: true
+    name: rove
+    state: restarted
+    enabled: yes
