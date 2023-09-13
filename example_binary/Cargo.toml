@@ -11,6 +11,9 @@ tokio = { version = "1.18.2", features = ["full"] }
 frost = { path = "../frost" }
 lustre_netatmo = { path = "../lustre_netatmo" }
 dagmar = { git = "https://github.com/intarga/dagmar" }
+clap = { version = "4.4.3", features = ["derive"] }
+tracing = "0.1.16"
+tracing-subscriber = { version = "0.3", features = ["tracing-log"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["async_tokio"] }
