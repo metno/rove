@@ -20,7 +20,7 @@
     owner: root
     group: root
   notify:
-    - Start rove
+    - Reload daemon
 
 - name: Copy binary to server
   copy:
@@ -30,4 +30,4 @@
     owner: root
     group: root
   notify:
-    - Start rove
+    - Restart rove
