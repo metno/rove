@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rove = { path = "../rove" }
+rove = { path = ".." }
 tokio = { version = "1.18.2", features = ["full"] }
 frost = { path = "../frost" }
 lustre_netatmo = { path = "../lustre_netatmo" }
