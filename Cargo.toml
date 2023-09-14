@@ -1,8 +1,31 @@
 [workspace]
-
 members = [
-  "rove",
   "frost",
   "example_binary",
   "lustre_netatmo"
 ]
+
+[package]
+name = "rove"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic = "0.7.2"
+tokio = { version = "1.18.2", features = ["full"] }
+prost = "0.10.4"
+prost-types = "0.10"
+dagmar = { git = "https://github.com/intarga/dagmar" }
+olympian = "0.3.1"
+tracing = "0.1.16"
+futures = "0.3.21"
+tokio-stream = { version = "0.1.8", features = ["net"] }
+tempfile = "3.3.0"
+tower = { version = "0.4" }
+thiserror = "1.0.40"
+chrono = "0.4.26"
+chronoutil = "0.2.5"
+async-trait = "0.1.71"
+
+[build-dependencies]
+tonic-build = "0.7.2"
