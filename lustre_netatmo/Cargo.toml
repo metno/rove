@@ -3,12 +3,10 @@ name = "lustre_netatmo"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 rove = { path = ".." }
-chrono = "0.4.26"
-csv = "1.2.2"
-async-trait = "0.1.71"
-serde = { version = "1.0.164", features = ["derive"] }
-tokio = { version = "1.18.2", features = ["full"] }
+chrono.workspace = true
+csv.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+tokio.workspace = true
