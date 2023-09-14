@@ -9,8 +9,8 @@ use rove::{
 use std::collections::HashMap;
 use tracing::Level;
 
-// TODO: add author/version/about metadata?
 #[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long, default_value_t = String::from("[::1]:1337"))]
     address: String,
