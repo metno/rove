@@ -1,7 +1,7 @@
 use crate::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
 use rove::{
-    data_switch::{SpatialCache, Timestamp},
+    data_switch::{self, SpatialCache, Timestamp},
     pb::GeoPoint,
 };
 
@@ -115,7 +115,7 @@ pub async fn get_spatial_data_inner(
     polygon: Vec<GeoPoint>,
     data_id: &str,
     timestamp: Timestamp,
-) -> Result<SpatialCache, Error> {
+) -> Result<SpatialCache, data_switch::Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -140,12 +140,14 @@ pub async fn get_spatial_data_inner(
             ("geopostype", "stationary".to_string()),
         ])
         .send()
-        .await?
+        .await
+        .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?
         .json()
-        .await?;
+        .await
+        .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?;
 
     // TODO: send this part to rayon?
-    json_to_spatial_cache(resp, time)
+    json_to_spatial_cache(resp, time).map_err(|e| data_switch::Error::Other(Box::new(e)))
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use crate::{duration, Error, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
-use rove::data_switch::{SeriesCache, Timerange, Timestamp};
+use rove::data_switch::{self, SeriesCache, Timerange, Timestamp};
 
 fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
     let time_resolution = metadata_resp
@@ -146,13 +146,20 @@ pub async fn get_series_data_inner(
     data_id: &str,
     timerange: Timerange,
     num_leading_points: u8,
-) -> Result<SeriesCache, Error> {
+) -> Result<SeriesCache, data_switch::Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
-    let (station_id, element_id) = data_id
-        .split_once('/')
-        .ok_or(Error::InvalidDataId(data_id.to_string()))?;
+    let (station_id, element_id) =
+        data_id
+            .split_once('/')
+            .ok_or(data_switch::Error::InvalidDataId {
+                data_id: data_id.to_string(),
+                data_source: "frost",
+                source: Box::new(Error::InvalidDataId(
+                    "no \"/\" found to separate station_id from element_id",
+                )),
+            })?;
 
     // TODO: should these maybe just be passed in this way?
     let interval_start = Utc.timestamp_opt(timerange.start.0, 0).unwrap();
@@ -166,11 +173,14 @@ pub async fn get_series_data_inner(
             ("incobs", "false"),
         ])
         .send()
-        .await?
+        .await
+        .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?
         .json()
-        .await?;
+        .await
+        .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?;
 
-    let period = extract_duration(metadata_resp)?;
+    let period =
+        extract_duration(metadata_resp).map_err(|e| data_switch::Error::Other(Box::new(e)))?;
 
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
@@ -191,9 +201,11 @@ pub async fn get_series_data_inner(
             ),
         ])
         .send()
-        .await?
+        .await
+        .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?
         .json()
-        .await?;
+        .await
+        .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?;
 
     // TODO: send this part to rayon?
     json_to_series_cache(
@@ -203,6 +215,7 @@ pub async fn get_series_data_inner(
         interval_start,
         interval_end,
     )
+    .map_err(|e| data_switch::Error::Other(Box::new(e)))
 }
 
 #[cfg(test)]
