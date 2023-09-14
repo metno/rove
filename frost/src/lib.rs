@@ -16,8 +16,8 @@ mod spatial;
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
-    #[error("data id `{0}` could not be parsed")]
-    InvalidDataId(String),
+    #[error("{0}")]
+    InvalidDataId(&'static str),
     #[error("fetching data from frost failed")]
     Request(#[from] reqwest::Error),
     #[error("failed to find obs in json body: {0}")]
@@ -106,9 +106,7 @@ impl DataSource for Frost {
         timerange: Timerange,
         num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        series::get_series_data_inner(data_id, timerange, num_leading_points)
-            .await
-            .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
+        series::get_series_data_inner(data_id, timerange, num_leading_points).await
     }
 
     async fn get_spatial_data(
@@ -117,8 +115,6 @@ impl DataSource for Frost {
         data_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
-        spatial::get_spatial_data_inner(polygon, data_id, timestamp)
-            .await
-            .map_err(|e| data_switch::Error::CatchAll(format!("{}", e)))
+        spatial::get_spatial_data_inner(polygon, data_id, timestamp).await
     }
 }

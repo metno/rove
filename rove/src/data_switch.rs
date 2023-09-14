@@ -12,7 +12,13 @@ pub enum Error {
     InvalidSeriesId(String),
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
-    #[error("io error")]
+    #[error("data id `{data_id}` could not be parsed by data source {data_source}: {source}")]
+    InvalidDataId {
+        data_source: &'static str,
+        data_id: String,
+        source: Box<dyn std::error::Error + Send>,
+    },
+    #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("this data source does not offer series data: {0}")]
     SeriesUnimplemented(String),
@@ -20,9 +26,8 @@ pub enum Error {
     SpatialUnimplemented(String),
     #[error("tokio task failure")]
     JoinError(#[from] tokio::task::JoinError),
-    // TODO: remove this and provide proper errors to map to
-    #[error("connector failed: {0}")]
-    CatchAll(String),
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send>),
 }
 
 /// Unix timestamp, inner i64 is seconds since unix epoch
