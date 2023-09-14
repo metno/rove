@@ -3,27 +3,25 @@ name = "example_binary"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 rove = { path = ".." }
-tokio = { version = "1.18.2", features = ["full"] }
+tokio.workspace = true
 frost = { path = "../frost" }
 lustre_netatmo = { path = "../lustre_netatmo" }
-dagmar = { git = "https://github.com/intarga/dagmar" }
-clap = { version = "4.4.3", features = ["derive"] }
-tracing = "0.1.16"
-tracing-subscriber = { version = "0.3", features = ["tracing-log"] }
+dagmar.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.5.1", features = ["async_tokio"] }
-tonic = "0.7.2"
-prost-types = "0.10"
-tempfile = "3.3.0"
-tokio-stream = { version = "0.1.8", features = ["net"] }
-tower = { version = "0.4" }
-async-trait = "0.1.71"
-chronoutil = "0.2.5"
+criterion.workspace = true
+tonic.workspace = true
+prost-types.workspace = true
+tempfile.workspace = true
+tokio-stream.workspace = true
+tower.workspace = true
+async-trait.workspace = true
+chronoutil.workspace = true
 
 [[bench]]
 name = "scalability_deliverable"
