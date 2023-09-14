@@ -250,7 +250,7 @@ impl Rove for RoveService<'static> {
             ));
         }
 
-        let data = self
+        let data = match self
             .data_switch
             .get_series_data(
                 req.series_id.as_str(),
@@ -271,7 +271,16 @@ impl Rove for RoveService<'static> {
                 2,
             )
             .await
-            .map_err(|e| Status::not_found(format!("data not found by data_switch: {}", e)))?;
+        {
+            Ok(data) => data,
+            Err(e) => {
+                tracing::error!(%e);
+                return Err(Status::not_found(format!(
+                    "data not found by data_switch: {}",
+                    e
+                )));
+            }
+        };
 
         let subdag = self
             .construct_subdag(req.tests)
@@ -300,7 +309,7 @@ impl Rove for RoveService<'static> {
             ));
         }
 
-        let data = self
+        let data = match self
             .data_switch
             .get_spatial_data(
                 req.polygon,
@@ -313,7 +322,16 @@ impl Rove for RoveService<'static> {
                 ),
             )
             .await
-            .map_err(|e| Status::not_found(format!("data not found by data_switch: {}", e)))?;
+        {
+            Ok(data) => data,
+            Err(e) => {
+                tracing::error!(%e);
+                return Err(Status::not_found(format!(
+                    "data not found by data_switch: {}",
+                    e
+                )));
+            }
+        };
 
         let subdag = self
             .construct_subdag(req.tests)
