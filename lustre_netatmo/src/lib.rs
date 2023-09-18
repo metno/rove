@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataConnector, SeriesCache, SpatialCache, Timerange, Timestamp},
     pb::GeoPoint,
 };
 use serde::Deserialize;
@@ -66,7 +66,7 @@ fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
 }
 
 #[async_trait]
-impl DataSource for LustreNetatmo {
+impl DataConnector for LustreNetatmo {
     async fn get_series_data(
         &self,
         _data_id: &str,

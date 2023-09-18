@@ -3,7 +3,7 @@ use chronoutil::RelativeDuration;
 use dagmar::Dag;
 use rove::{
     data_switch,
-    data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataConnector, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
     pb::{rove_client::RoveClient, Flag, GeoPoint, ValidateSeriesRequest},
     server::{start_server, ListenerType},
 };
@@ -18,7 +18,7 @@ use tower::service_fn;
 struct TestDataSource;
 
 #[async_trait]
-impl DataSource for TestDataSource {
+impl DataConnector for TestDataSource {
     async fn get_series_data(
         &self,
         _data_id: &str,
@@ -67,7 +67,7 @@ async fn integration_test() {
 
     let data_switch = DataSwitch::new(HashMap::from([(
         "test",
-        &TestDataSource as &dyn DataSource,
+        &TestDataSource as &dyn DataConnector,
     )]));
 
     let coordintor_socket = NamedTempFile::new().unwrap();
