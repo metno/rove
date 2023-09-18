@@ -1,13 +1,17 @@
 [package]
-name = "lustre_netatmo"
+name = "met_connectors"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
 [dependencies]
 rove = { path = ".." }
-chrono.workspace = true
-csv.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
+chronoutil.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
 serde.workspace = true
+reqwest.workspace = true
+csv.workspace = true
 tokio.workspace = true

@@ -7,9 +7,8 @@ description.workspace = true
 
 [dependencies]
 rove = { path = ".." }
+met_connectors = { path = "../met_connectors" }
 tokio.workspace = true
-frost = { path = "../frost" }
-lustre_netatmo = { path = "../lustre_netatmo" }
 dagmar.workspace = true
 clap.workspace = true
 tracing.workspace = true
