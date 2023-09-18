@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataSource, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataConnector, SeriesCache, SpatialCache, Timerange, Timestamp},
     pb::GeoPoint,
 };
 use serde::{Deserialize, Deserializer};
@@ -99,7 +99,7 @@ where
 }
 
 #[async_trait]
-impl DataSource for Frost {
+impl DataConnector for Frost {
     async fn get_series_data(
         &self,
         data_id: &str,

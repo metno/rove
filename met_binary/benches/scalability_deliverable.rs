@@ -6,7 +6,7 @@ use criterion::{
 use met_binary::construct_hardcoded_dag;
 use rove::{
     data_switch,
-    data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataConnector, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
     pb::{rove_client::RoveClient, GeoPoint, ValidateSeriesRequest, ValidateSpatialRequest},
     server::{start_server, ListenerType},
 };
@@ -32,7 +32,7 @@ const DATA_LEN_SPATIAL: usize = 1000;
 struct BenchDataSource;
 
 #[async_trait]
-impl DataSource for BenchDataSource {
+impl DataConnector for BenchDataSource {
     async fn get_series_data(
         &self,
         data_id: &str,
@@ -79,7 +79,7 @@ fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {
     let (channel, server_future) = runtime.block_on(async {
         let data_switch = DataSwitch::new(HashMap::from([(
             "bench",
-            &BenchDataSource as &dyn DataSource,
+            &BenchDataSource as &dyn DataConnector,
         )]));
 
         let coordintor_socket = NamedTempFile::new().unwrap();

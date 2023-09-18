@@ -3,7 +3,7 @@ use frost::Frost;
 use lustre_netatmo::LustreNetatmo;
 use met_binary::construct_hardcoded_dag;
 use rove::{
-    data_switch::{DataSource, DataSwitch},
+    data_switch::{DataConnector, DataSwitch},
     server::{start_server, ListenerType},
 };
 use std::collections::HashMap;
@@ -28,8 +28,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let data_switch = DataSwitch::new(HashMap::from([
-        ("frost", &Frost as &dyn DataSource),
-        ("lustre_netatmo", &LustreNetatmo as &dyn DataSource),
+        ("frost", &Frost as &dyn DataConnector),
+        ("lustre_netatmo", &LustreNetatmo as &dyn DataConnector),
     ]));
 
     start_server(

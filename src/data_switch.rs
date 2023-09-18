@@ -63,7 +63,7 @@ impl SpatialCache {
 }
 
 #[async_trait]
-pub trait DataSource: Sync + std::fmt::Debug {
+pub trait DataConnector: Sync + std::fmt::Debug {
     async fn get_series_data(
         &self,
         data_id: &str,
@@ -82,11 +82,11 @@ pub trait DataSource: Sync + std::fmt::Debug {
 
 #[derive(Debug)]
 pub struct DataSwitch<'ds> {
-    sources: HashMap<&'ds str, &'ds dyn DataSource>,
+    sources: HashMap<&'ds str, &'ds dyn DataConnector>,
 }
 
 impl<'ds> DataSwitch<'ds> {
-    pub fn new(sources: HashMap<&'ds str, &'ds dyn DataSource>) -> Self {
+    pub fn new(sources: HashMap<&'ds str, &'ds dyn DataConnector>) -> Self {
         Self { sources }
     }
 
