@@ -1,8 +1,7 @@
 [workspace]
 members = [
-  "frost",
   "met_binary",
-  "lustre_netatmo"
+  "met_connectors"
 ]
 
 [workspace.package]

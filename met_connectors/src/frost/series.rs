@@ -1,4 +1,4 @@
-use crate::{duration, Error, FrostObs};
+use crate::frost::{duration, Error, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, SeriesCache, Timerange, Timestamp};
