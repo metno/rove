@@ -2,6 +2,6 @@
 *.pb.go
 *.pb.cc
 *.pb.h
-python_client/proto/*
+python_client/*
 docs/plantuml.jar
 ansible/roles/deploy/files/rove_bin
