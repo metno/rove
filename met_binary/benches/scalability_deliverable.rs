@@ -3,7 +3,7 @@ use chronoutil::RelativeDuration;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use example_binary::construct_hardcoded_dag;
+use met_binary::construct_hardcoded_dag;
 use rove::{
     data_switch,
     data_switch::{DataSource, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
