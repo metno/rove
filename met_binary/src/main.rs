@@ -1,7 +1,7 @@
 use clap::Parser;
-use example_binary::construct_hardcoded_dag;
 use frost::Frost;
 use lustre_netatmo::LustreNetatmo;
+use met_binary::construct_hardcoded_dag;
 use rove::{
     data_switch::{DataSource, DataSwitch},
     server::{start_server, ListenerType},

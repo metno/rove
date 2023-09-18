@@ -1,5 +1,5 @@
 [package]
-name = "example_binary"
+name = "met_binary"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

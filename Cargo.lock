@@ -598,28 +598,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example_binary"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chronoutil",
- "clap",
- "criterion",
- "dagmar",
- "frost",
- "lustre_netatmo",
- "prost-types",
- "rove",
- "tempfile",
- "tokio",
- "tokio-stream",
- "tonic",
- "tower",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "faer-core"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1294,6 +1272,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "met_binary"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chronoutil",
+ "clap",
+ "criterion",
+ "dagmar",
+ "frost",
+ "lustre_netatmo",
+ "prost-types",
+ "rove",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
