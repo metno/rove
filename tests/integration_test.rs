@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
+use core::future::Future;
 use dagmar::Dag;
 use rove::{
     data_switch,
@@ -11,7 +12,7 @@ use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
 use tokio::net::{UnixListener, UnixStream};
 use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
-use tonic::transport::Endpoint;
+use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
 
 const DATA_LEN_SINGLE: usize = 3;
@@ -72,6 +73,38 @@ pub fn construct_hardcoded_dag() -> Dag<String> {
     dag
 }
 
+pub async fn set_up_rove(
+    data_switch: DataSwitch<'static>,
+    dag: Dag<String>,
+) -> (impl Future<Output = ()>, RoveClient<Channel>) {
+    let coordintor_socket = NamedTempFile::new().unwrap();
+    let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
+    std::fs::remove_file(&*coordintor_socket).unwrap();
+    let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
+    let coordintor_stream = UnixListenerStream::new(coordintor_uds);
+    let coordinator_future = async {
+        start_server(
+            ListenerType::UnixListener(coordintor_stream),
+            data_switch,
+            dag,
+        )
+        .await
+        .unwrap();
+    };
+
+    let coordinator_channel = Endpoint::try_from("http://any.url")
+        .unwrap()
+        .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
+            let socket = Arc::clone(&coordintor_socket);
+            async move { UnixStream::connect(&*socket).await }
+        }))
+        .await
+        .unwrap();
+    let client = RoveClient::new(coordinator_channel);
+
+    (coordinator_future, client)
+}
+
 // This test exists because the real dag isn't currently complex enough to
 // verify correct scheduling. In the future we will either decide we don't
 // need complex dag based scheduling, or the real dag will become complex.
@@ -88,30 +121,7 @@ async fn integration_test_fake_dag() {
         &TestDataSource as &dyn DataConnector,
     )]));
 
-    let coordintor_socket = NamedTempFile::new().unwrap();
-    let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
-    std::fs::remove_file(&*coordintor_socket).unwrap();
-    let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
-    let coordintor_stream = UnixListenerStream::new(coordintor_uds);
-    let coordinator_future = async {
-        start_server(
-            ListenerType::UnixListener(coordintor_stream),
-            data_switch,
-            construct_fake_dag(),
-        )
-        .await
-        .unwrap();
-    };
-
-    let coordinator_channel = Endpoint::try_from("http://any.url")
-        .unwrap()
-        .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
-            let socket = Arc::clone(&coordintor_socket);
-            async move { UnixStream::connect(&*socket).await }
-        }))
-        .await
-        .unwrap();
-    let mut client = RoveClient::new(coordinator_channel);
+    let (coordinator_future, mut client) = set_up_rove(data_switch, construct_fake_dag()).await;
 
     let request_future = async {
         let mut stream = client
@@ -154,30 +164,8 @@ async fn integration_test_hardcoded_dag() {
         &TestDataSource as &dyn DataConnector,
     )]));
 
-    let coordintor_socket = NamedTempFile::new().unwrap();
-    let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
-    std::fs::remove_file(&*coordintor_socket).unwrap();
-    let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
-    let coordintor_stream = UnixListenerStream::new(coordintor_uds);
-    let coordinator_future = async {
-        start_server(
-            ListenerType::UnixListener(coordintor_stream),
-            data_switch,
-            construct_hardcoded_dag(),
-        )
-        .await
-        .unwrap();
-    };
-
-    let coordinator_channel = Endpoint::try_from("http://any.url")
-        .unwrap()
-        .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
-            let socket = Arc::clone(&coordintor_socket);
-            async move { UnixStream::connect(&*socket).await }
-        }))
-        .await
-        .unwrap();
-    let mut client = RoveClient::new(coordinator_channel);
+    let (coordinator_future, mut client) =
+        set_up_rove(data_switch, construct_hardcoded_dag()).await;
 
     let request_future = async {
         let mut stream = client
