@@ -13,17 +13,3 @@ dagmar.workspace = true
 clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-
-[dev-dependencies]
-criterion.workspace = true
-tonic.workspace = true
-prost-types.workspace = true
-tempfile.workspace = true
-tokio-stream.workspace = true
-tower.workspace = true
-async-trait.workspace = true
-chronoutil.workspace = true
-
-[[bench]]
-name = "scalability_deliverable"
-harness = false

@@ -63,7 +63,6 @@ olympian.workspace = true
 tracing.workspace = true
 futures.workspace = true
 tokio-stream.workspace = true
-tempfile.workspace = true
 tower.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
@@ -72,3 +71,11 @@ async-trait.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "scalability_deliverable"
+harness = false

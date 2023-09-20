@@ -3,11 +3,12 @@ use chronoutil::RelativeDuration;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use met_binary::construct_hardcoded_dag;
+use dagmar::Dag;
+use pb::{rove_client::RoveClient, ValidateSeriesRequest, ValidateSpatialRequest};
 use rove::{
-    data_switch,
-    data_switch::{DataConnector, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::{rove_client::RoveClient, GeoPoint, ValidateSeriesRequest, ValidateSpatialRequest},
+    data_switch::{
+        self, DataConnector, DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
+    },
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -20,6 +21,10 @@ use tokio::{
 use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
+
+mod pb {
+    tonic::include_proto!("rove");
+}
 
 const TEST_PARALLELISM_SINGLE: u64 = 100;
 const TEST_PARALLELISM_SERIES: u64 = 10;
@@ -73,6 +78,17 @@ impl DataConnector for BenchDataSource {
             vec![1.; DATA_LEN_SPATIAL],
         )))
     }
+}
+
+pub fn construct_hardcoded_dag() -> Dag<String> {
+    let mut dag: Dag<String> = Dag::new();
+
+    dag.add_node(String::from("dip_check"));
+    dag.add_node(String::from("step_check"));
+    dag.add_node(String::from("buddy_check"));
+    dag.add_node(String::from("sct"));
+
+    dag
 }
 
 fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {

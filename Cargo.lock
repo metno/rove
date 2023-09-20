@@ -1252,19 +1252,11 @@ dependencies = [
 name = "met_binary"
 version = "0.1.0"
 dependencies = [
- "async-trait",
- "chronoutil",
  "clap",
- "criterion",
  "dagmar",
  "met_connectors",
- "prost-types",
  "rove",
- "tempfile",
  "tokio",
- "tokio-stream",
- "tonic",
- "tower",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1819,6 +1811,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "chronoutil",
+ "criterion",
  "dagmar",
  "futures",
  "olympian",
