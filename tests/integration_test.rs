@@ -3,9 +3,10 @@ use chronoutil::RelativeDuration;
 use core::future::Future;
 use dagmar::Dag;
 use rove::{
-    data_switch,
-    data_switch::{DataConnector, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::{rove_client::RoveClient, Flag, GeoPoint, ValidateSeriesRequest},
+    data_switch::{
+        self, DataConnector, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp,
+    },
+    pb::{rove_client::RoveClient, Flag, GeoPoint, ValidateSeriesRequest, ValidateSpatialRequest},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -16,6 +17,7 @@ use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
 
 const DATA_LEN_SINGLE: usize = 3;
+const DATA_LEN_SPATIAL: usize = 1000;
 
 #[derive(Debug)]
 struct TestDataSource;
@@ -39,10 +41,19 @@ impl DataConnector for TestDataSource {
     async fn get_spatial_data(
         &self,
         _polygon: Vec<GeoPoint>,
-        _extra_spec: &str,
+        _spatial_id: &str,
         _timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
-        unimplemented!()
+        Ok(SpatialCache::new(
+            (0..DATA_LEN_SPATIAL)
+                .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
+                .collect(),
+            (0..DATA_LEN_SPATIAL)
+                .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
+                .collect(),
+            vec![1.; DATA_LEN_SPATIAL],
+            vec![1.; DATA_LEN_SPATIAL],
+        ))
     }
 }
 
@@ -167,7 +178,7 @@ async fn integration_test_hardcoded_dag() {
     let (coordinator_future, mut client) =
         set_up_rove(data_switch, construct_hardcoded_dag()).await;
 
-    let request_future = async {
+    let requests_future = async {
         let mut stream = client
             .validate_series(ValidateSeriesRequest {
                 series_id: String::from("test:1"),
@@ -202,10 +213,46 @@ async fn integration_test_hardcoded_dag() {
         assert_eq!(recv_count, 2);
         assert!(dip_recv);
         assert!(step_recv);
+
+        let mut stream = client
+            .validate_spatial(ValidateSpatialRequest {
+                spatial_id: String::from("test:1"),
+                backing_sources: Vec::new(),
+                tests: vec!["buddy_check".to_string(), "sct".to_string()],
+                time: Some(prost_types::Timestamp::default()),
+                polygon: Vec::new(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        let mut buddy_recv = false;
+        let mut sct_recv = false;
+        let mut recv_count = 0;
+        while let Some(recv) = stream.next().await {
+            let inner = recv.unwrap();
+            match inner.test.as_ref() {
+                "buddy_check" => {
+                    buddy_recv = true;
+                }
+                "sct" => {
+                    sct_recv = true;
+                }
+                _ => {
+                    panic!("unrecognised test name returned")
+                }
+            }
+            let flags: Vec<i32> = inner.results.iter().map(|res| res.flag).collect();
+            assert_eq!(flags, vec![Flag::Pass as i32; DATA_LEN_SPATIAL]);
+            recv_count += 1;
+        }
+        assert_eq!(recv_count, 2);
+        assert!(buddy_recv);
+        assert!(sct_recv);
     };
 
     tokio::select! {
         _ = coordinator_future => panic!("coordinator returned first"),
-        _ = request_future => (),
+        _ = requests_future => (),
     }
 }
