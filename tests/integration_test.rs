@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use core::future::Future;
 use dagmar::Dag;
+use pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest, ValidateSpatialRequest};
 use rove::{
     data_switch::{
-        self, DataConnector, DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp,
+        self, DataConnector, DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
     },
-    pb::{rove_client::RoveClient, Flag, GeoPoint, ValidateSeriesRequest, ValidateSpatialRequest},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -15,6 +15,10 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
+
+mod pb {
+    tonic::include_proto!("rove");
+}
 
 const DATA_LEN_SINGLE: usize = 3;
 const DATA_LEN_SPATIAL: usize = 1000;

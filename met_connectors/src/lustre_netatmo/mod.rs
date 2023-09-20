@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataConnector, SeriesCache, SpatialCache, Timerange, Timestamp},
-    pb::GeoPoint,
+    data_switch::{DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
 use serde::Deserialize;
 use std::{fs::File, io};

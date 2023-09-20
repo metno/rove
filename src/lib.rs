@@ -2,7 +2,7 @@ pub mod data_switch;
 mod harness;
 pub mod server;
 
-pub mod pb {
+pub(crate) mod pb {
     tonic::include_proto!("rove");
 
     impl TryFrom<olympian::Flag> for Flag {
