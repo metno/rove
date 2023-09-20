@@ -1,9 +1,6 @@
 use crate::frost::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
-use rove::{
-    data_switch::{self, SpatialCache, Timestamp},
-    pb::GeoPoint,
-};
+use rove::data_switch::{self, GeoPoint, SpatialCache, Timestamp};
 
 fn extract_metadata(
     mut header: serde_json::Value,

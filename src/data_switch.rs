@@ -1,4 +1,3 @@
-use crate::pb::GeoPoint;
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::SpatialTree;
@@ -33,6 +32,9 @@ pub enum Error {
 /// Unix timestamp, inner i64 is seconds since unix epoch
 #[derive(Debug)]
 pub struct Timestamp(pub i64);
+
+// pub type GeoPoint = crate::pb::GeoPoint;
+pub use crate::pb::GeoPoint;
 
 pub struct Timerange {
     pub start: Timestamp,
@@ -90,7 +92,7 @@ impl<'ds> DataSwitch<'ds> {
         Self { sources }
     }
 
-    pub async fn get_series_data(
+    pub(crate) async fn get_series_data(
         &self,
         series_id: &str,
         timerange: Timerange,
@@ -112,7 +114,7 @@ impl<'ds> DataSwitch<'ds> {
     }
 
     // TODO: handle backing sources
-    pub async fn get_spatial_data(
+    pub(crate) async fn get_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
         spatial_id: &str,
