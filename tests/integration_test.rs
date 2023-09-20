@@ -14,6 +14,8 @@ use tokio_stream::{wrappers::UnixListenerStream, StreamExt};
 use tonic::transport::Endpoint;
 use tower::service_fn;
 
+const DATA_LEN_SINGLE: usize = 3;
+
 #[derive(Debug)]
 struct TestDataSource;
 
@@ -28,7 +30,7 @@ impl DataConnector for TestDataSource {
         Ok(SeriesCache {
             start_time: Timestamp(0),
             period: RelativeDuration::minutes(5),
-            data: Vec::new(),
+            data: vec![Some(1.); DATA_LEN_SINGLE],
             num_leading_points,
         })
     }
@@ -59,8 +61,24 @@ fn construct_fake_dag() -> Dag<String> {
     dag
 }
 
+pub fn construct_hardcoded_dag() -> Dag<String> {
+    let mut dag: Dag<String> = Dag::new();
+
+    dag.add_node(String::from("dip_check"));
+    dag.add_node(String::from("step_check"));
+    dag.add_node(String::from("buddy_check"));
+    dag.add_node(String::from("sct"));
+
+    dag
+}
+
+// This test exists because the real dag isn't currently complex enough to
+// verify correct scheduling. In the future we will either decide we don't
+// need complex dag based scheduling, or the real dag will become complex.
+// In either case this test will eventually be obsolete, so:
+// TODO: delete
 #[tokio::test]
-async fn integration_test() {
+async fn integration_test_fake_dag() {
     // tracing_subscriber::fmt()
     //     .with_max_level(tracing::Level::INFO)
     //     .init();
@@ -117,6 +135,85 @@ async fn integration_test() {
             recv_count += 1;
         }
         assert_eq!(recv_count, 6);
+    };
+
+    tokio::select! {
+        _ = coordinator_future => panic!("coordinator returned first"),
+        _ = request_future => (),
+    }
+}
+
+#[tokio::test]
+async fn integration_test_hardcoded_dag() {
+    // tracing_subscriber::fmt()
+    //     .with_max_level(tracing::Level::INFO)
+    //     .init();
+
+    let data_switch = DataSwitch::new(HashMap::from([(
+        "test",
+        &TestDataSource as &dyn DataConnector,
+    )]));
+
+    let coordintor_socket = NamedTempFile::new().unwrap();
+    let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
+    std::fs::remove_file(&*coordintor_socket).unwrap();
+    let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
+    let coordintor_stream = UnixListenerStream::new(coordintor_uds);
+    let coordinator_future = async {
+        start_server(
+            ListenerType::UnixListener(coordintor_stream),
+            data_switch,
+            construct_hardcoded_dag(),
+        )
+        .await
+        .unwrap();
+    };
+
+    let coordinator_channel = Endpoint::try_from("http://any.url")
+        .unwrap()
+        .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
+            let socket = Arc::clone(&coordintor_socket);
+            async move { UnixStream::connect(&*socket).await }
+        }))
+        .await
+        .unwrap();
+    let mut client = RoveClient::new(coordinator_channel);
+
+    let request_future = async {
+        let mut stream = client
+            .validate_series(ValidateSeriesRequest {
+                series_id: String::from("test:1"),
+                tests: vec![String::from("step_check"), String::from("dip_check")],
+                start_time: Some(prost_types::Timestamp::default()),
+                end_time: Some(prost_types::Timestamp::default()),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        let mut step_recv = false;
+        let mut dip_recv = false;
+        let mut recv_count = 0;
+        while let Some(recv) = stream.next().await {
+            let inner = recv.unwrap();
+            match inner.test.as_ref() {
+                "dip_check" => {
+                    dip_recv = true;
+                }
+                "step_check" => {
+                    step_recv = true;
+                }
+                _ => {
+                    panic!("unrecognised test name returned")
+                }
+            }
+            let flags: Vec<i32> = inner.results.iter().map(|res| res.flag).collect();
+            assert_eq!(flags, vec![Flag::Pass as i32; 1]);
+            recv_count += 1;
+        }
+        assert_eq!(recv_count, 2);
+        assert!(dip_recv);
+        assert!(step_recv);
     };
 
     tokio::select! {
