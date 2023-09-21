@@ -1,12 +1,9 @@
-use async_trait::async_trait;
-use chronoutil::RelativeDuration;
 use core::future::Future;
 use dagmar::Dag;
 use pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest, ValidateSpatialRequest};
 use rove::{
-    data_switch::{
-        self, DataConnector, DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
-    },
+    data_switch::{DataConnector, DataSwitch},
+    dev_utils::{construct_fake_dag, construct_hardcoded_dag, TestDataSource},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -22,71 +19,6 @@ mod pb {
 
 const DATA_LEN_SINGLE: usize = 3;
 const DATA_LEN_SPATIAL: usize = 1000;
-
-#[derive(Debug)]
-struct TestDataSource;
-
-#[async_trait]
-impl DataConnector for TestDataSource {
-    async fn get_series_data(
-        &self,
-        _data_id: &str,
-        _timespec: Timerange,
-        num_leading_points: u8,
-    ) -> Result<SeriesCache, data_switch::Error> {
-        Ok(SeriesCache {
-            start_time: Timestamp(0),
-            period: RelativeDuration::minutes(5),
-            data: vec![Some(1.); DATA_LEN_SINGLE],
-            num_leading_points,
-        })
-    }
-
-    async fn get_spatial_data(
-        &self,
-        _polygon: Vec<GeoPoint>,
-        _spatial_id: &str,
-        _timestamp: Timestamp,
-    ) -> Result<SpatialCache, data_switch::Error> {
-        Ok(SpatialCache::new(
-            (0..DATA_LEN_SPATIAL)
-                .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
-                .collect(),
-            (0..DATA_LEN_SPATIAL)
-                .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
-                .collect(),
-            vec![1.; DATA_LEN_SPATIAL],
-            vec![1.; DATA_LEN_SPATIAL],
-        ))
-    }
-}
-
-fn construct_fake_dag() -> Dag<String> {
-    let mut dag: Dag<String> = Dag::new();
-
-    let test6 = dag.add_node(String::from("test6"));
-
-    let test4 = dag.add_node_with_children(String::from("test4"), vec![test6]);
-    let test5 = dag.add_node_with_children(String::from("test5"), vec![test6]);
-
-    let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
-    let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
-
-    let _test1 = dag.add_node_with_children(String::from("test1"), vec![test2, test3]);
-
-    dag
-}
-
-pub fn construct_hardcoded_dag() -> Dag<String> {
-    let mut dag: Dag<String> = Dag::new();
-
-    dag.add_node(String::from("dip_check"));
-    dag.add_node(String::from("step_check"));
-    dag.add_node(String::from("buddy_check"));
-    dag.add_node(String::from("sct"));
-
-    dag
-}
 
 pub async fn set_up_rove(
     data_switch: DataSwitch<'static>,
@@ -133,7 +65,11 @@ async fn integration_test_fake_dag() {
 
     let data_switch = DataSwitch::new(HashMap::from([(
         "test",
-        &TestDataSource as &dyn DataConnector,
+        &TestDataSource {
+            data_len_single: DATA_LEN_SINGLE,
+            data_len_series: 1,
+            data_len_spatial: DATA_LEN_SPATIAL,
+        } as &dyn DataConnector,
     )]));
 
     let (coordinator_future, mut client) = set_up_rove(data_switch, construct_fake_dag()).await;
@@ -141,7 +77,7 @@ async fn integration_test_fake_dag() {
     let request_future = async {
         let mut stream = client
             .validate_series(ValidateSeriesRequest {
-                series_id: String::from("test:1"),
+                series_id: String::from("test:single"),
                 tests: vec![String::from("test1")],
                 start_time: Some(prost_types::Timestamp::default()),
                 end_time: Some(prost_types::Timestamp::default()),
@@ -176,7 +112,11 @@ async fn integration_test_hardcoded_dag() {
 
     let data_switch = DataSwitch::new(HashMap::from([(
         "test",
-        &TestDataSource as &dyn DataConnector,
+        &TestDataSource {
+            data_len_single: DATA_LEN_SINGLE,
+            data_len_series: 1,
+            data_len_spatial: DATA_LEN_SPATIAL,
+        } as &dyn DataConnector,
     )]));
 
     let (coordinator_future, mut client) =
@@ -185,7 +125,7 @@ async fn integration_test_hardcoded_dag() {
     let requests_future = async {
         let mut stream = client
             .validate_series(ValidateSeriesRequest {
-                series_id: String::from("test:1"),
+                series_id: String::from("test:single"),
                 tests: vec![String::from("step_check"), String::from("dip_check")],
                 start_time: Some(prost_types::Timestamp::default()),
                 end_time: Some(prost_types::Timestamp::default()),
@@ -220,7 +160,7 @@ async fn integration_test_hardcoded_dag() {
 
         let mut stream = client
             .validate_spatial(ValidateSpatialRequest {
-                spatial_id: String::from("test:1"),
+                spatial_id: String::from("test:spatial"),
                 backing_sources: Vec::new(),
                 tests: vec!["buddy_check".to_string(), "sct".to_string()],
                 time: Some(prost_types::Timestamp::default()),
