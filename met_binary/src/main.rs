@@ -1,9 +1,9 @@
 use clap::Parser;
-use met_binary::construct_hardcoded_dag;
 use met_connectors::Frost;
 use met_connectors::LustreNetatmo;
 use rove::{
     data_switch::{DataConnector, DataSwitch},
+    dev_utils::construct_hardcoded_dag,
     server::{start_server, ListenerType},
 };
 use std::collections::HashMap;

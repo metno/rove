@@ -1,14 +1,10 @@
-use async_trait::async_trait;
-use chronoutil::RelativeDuration;
 use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
+    criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use dagmar::Dag;
 use pb::{rove_client::RoveClient, ValidateSeriesRequest, ValidateSpatialRequest};
 use rove::{
-    data_switch::{
-        self, DataConnector, DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
-    },
+    data_switch::{DataConnector, DataSwitch},
+    dev_utils::{construct_hardcoded_dag, TestDataSource},
     server::{start_server, ListenerType},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -33,69 +29,15 @@ const DATA_LEN_SINGLE: usize = 3;
 const DATA_LEN_SERIES: usize = 10000;
 const DATA_LEN_SPATIAL: usize = 1000;
 
-#[derive(Debug)]
-struct BenchDataSource;
-
-#[async_trait]
-impl DataConnector for BenchDataSource {
-    async fn get_series_data(
-        &self,
-        data_id: &str,
-        _timespec: Timerange,
-        num_leading_points: u8,
-    ) -> Result<SeriesCache, data_switch::Error> {
-        match data_id {
-            "single" => black_box(Ok(SeriesCache {
-                start_time: Timestamp(0),
-                period: RelativeDuration::minutes(5),
-                data: vec![Some(1.); DATA_LEN_SINGLE],
-                num_leading_points,
-            })),
-            "series" => black_box(Ok(SeriesCache {
-                start_time: Timestamp(0),
-                period: RelativeDuration::minutes(5),
-                data: vec![Some(1.); DATA_LEN_SERIES],
-                num_leading_points,
-            })),
-            _ => panic!("unknown data_id"),
-        }
-    }
-
-    async fn get_spatial_data(
-        &self,
-        _polygon: Vec<GeoPoint>,
-        _spatial_id: &str,
-        _timestamp: Timestamp,
-    ) -> Result<SpatialCache, data_switch::Error> {
-        black_box(Ok(SpatialCache::new(
-            (0..DATA_LEN_SPATIAL)
-                .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
-                .collect(),
-            (0..DATA_LEN_SPATIAL)
-                .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
-                .collect(),
-            vec![1.; DATA_LEN_SPATIAL],
-            vec![1.; DATA_LEN_SPATIAL],
-        )))
-    }
-}
-
-pub fn construct_hardcoded_dag() -> Dag<String> {
-    let mut dag: Dag<String> = Dag::new();
-
-    dag.add_node(String::from("dip_check"));
-    dag.add_node(String::from("step_check"));
-    dag.add_node(String::from("buddy_check"));
-    dag.add_node(String::from("sct"));
-
-    dag
-}
-
 fn spawn_server(runtime: &Runtime) -> (Channel, JoinHandle<()>) {
     let (channel, server_future) = runtime.block_on(async {
         let data_switch = DataSwitch::new(HashMap::from([(
             "bench",
-            &BenchDataSource as &dyn DataConnector,
+            &TestDataSource {
+                data_len_single: DATA_LEN_SINGLE,
+                data_len_series: DATA_LEN_SERIES,
+                data_len_spatial: DATA_LEN_SPATIAL,
+            } as &dyn DataConnector,
         )]));
 
         let coordintor_socket = NamedTempFile::new().unwrap();
