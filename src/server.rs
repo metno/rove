@@ -1,5 +1,5 @@
 use crate::{
-    data_switch::{DataSwitch, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp},
     harness,
     pb::{
         rove_server::{Rove, RoveServer},
@@ -38,7 +38,7 @@ pub enum ListenerType {
 }
 
 #[derive(Debug)]
-struct RoveService<'a> {
+pub struct RoveService<'a> {
     // TODO: the String here can probably be &'a or &'static str
     // TODO: separate DAGs for series and spatial tests?
     dag: Dag<String>,
@@ -46,7 +46,7 @@ struct RoveService<'a> {
 }
 
 impl<'a> RoveService<'a> {
-    fn new(dag: Dag<String>, data_switch: DataSwitch<'a>) -> Self {
+    pub fn new(dag: Dag<String>, data_switch: DataSwitch<'a>) -> Self {
         RoveService { dag, data_switch }
     }
 
@@ -96,138 +96,212 @@ impl<'a> RoveService<'a> {
 
         Ok(subdag)
     }
-}
 
-fn schedule_tests_series(
-    subdag: Dag<String>,
-    data: SeriesCache,
-) -> Receiver<Result<ValidateSeriesResponse, Status>> {
-    // spawn and channel are required if you want handle "disconnect" functionality
-    // the `out_stream` will not be polled after client disconnect
-    let (tx, rx) = channel(subdag.nodes.len());
-    tokio::spawn(async move {
-        let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
-        let mut test_futures = FuturesUnordered::new();
+    fn schedule_tests_series(
+        subdag: Dag<String>,
+        data: SeriesCache,
+    ) -> Receiver<Result<ValidateSeriesResponse, Status>> {
+        // spawn and channel are required if you want handle "disconnect" functionality
+        // the `out_stream` will not be polled after client disconnect
+        let (tx, rx) = channel(subdag.nodes.len());
+        tokio::spawn(async move {
+            let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
+            let mut test_futures = FuturesUnordered::new();
 
-        for leaf_index in subdag.leaves.clone().into_iter() {
-            test_futures.push(harness::run_test_series(
-                subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
-                &data,
+            for leaf_index in subdag.leaves.clone().into_iter() {
+                test_futures.push(harness::run_test_series(
+                    subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
+                    &data,
+                ));
+            }
+
+            while let Some(res) = test_futures.next().await {
+                match tx
+                    .send(
+                        res.clone()
+                            .map_err(|e| Status::aborted(format!("a test run failed: {}", e))),
+                    )
+                    .await
+                {
+                    Ok(_) => {
+                        // item (server response) was queued to be send to client
+                    }
+                    Err(_item) => {
+                        // output_stream was build from rx and both are dropped
+                        break;
+                    }
+                }
+
+                match res {
+                    Ok(inner) => {
+                        let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
+
+                        for parent_index in
+                            subdag.nodes.get(*completed_index).unwrap().parents.iter()
+                        {
+                            let children_completed = children_completed_map
+                                .get(parent_index)
+                                .map(|x| x + 1)
+                                .unwrap_or(1);
+
+                            children_completed_map.insert(*parent_index, children_completed);
+
+                            if children_completed
+                                >= subdag.nodes.get(*parent_index).unwrap().children.len()
+                            {
+                                test_futures.push(harness::run_test_series(
+                                    subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                                    &data,
+                                ))
+                            }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        rx
+    }
+
+    // sad about the amount of repetition here... perhaps we can do better once async
+    // closures drop?
+    fn schedule_tests_spatial(
+        subdag: Dag<String>,
+        data: SpatialCache,
+    ) -> Receiver<Result<ValidateSpatialResponse, Status>> {
+        // spawn and channel are required if you want handle "disconnect" functionality
+        // the `out_stream` will not be polled after client disconnect
+        let (tx, rx) = channel(subdag.nodes.len());
+        tokio::spawn(async move {
+            let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
+            let mut test_futures = FuturesUnordered::new();
+
+            for leaf_index in subdag.leaves.clone().into_iter() {
+                test_futures.push(harness::run_test_spatial(
+                    subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
+                    &data,
+                ));
+            }
+
+            while let Some(res) = test_futures.next().await {
+                match tx
+                    .send(
+                        res.clone()
+                            .map_err(|e| Status::aborted(format!("a test run failed: {}", e))),
+                    )
+                    .await
+                {
+                    Ok(_) => {
+                        // item (server response) was queued to be send to client
+                    }
+                    Err(_item) => {
+                        // output_stream was build from rx and both are dropped
+                        break;
+                    }
+                }
+
+                match res {
+                    Ok(inner) => {
+                        let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
+
+                        for parent_index in
+                            subdag.nodes.get(*completed_index).unwrap().parents.iter()
+                        {
+                            let children_completed = children_completed_map
+                                .get(parent_index)
+                                .map(|x| x + 1)
+                                .unwrap_or(1);
+
+                            children_completed_map.insert(*parent_index, children_completed);
+
+                            if children_completed
+                                >= subdag.nodes.get(*parent_index).unwrap().children.len()
+                            {
+                                test_futures.push(harness::run_test_spatial(
+                                    subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                                    &data,
+                                ))
+                            }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        rx
+    }
+
+    // TODO: rethink string and error types here
+    pub async fn validate_series_direct(
+        &self,
+        series_id: String,
+        tests: Vec<String>,
+        timerange: Timerange,
+    ) -> Result<Receiver<Result<ValidateSeriesResponse, Status>>, Status> {
+        if tests.is_empty() {
+            return Err(Status::invalid_argument(
+                "request must specify at least 1 test to be run",
             ));
         }
 
-        while let Some(res) = test_futures.next().await {
-            match tx
-                .send(
-                    res.clone()
-                        .map_err(|e| Status::aborted(format!("a test run failed: {}", e))),
-                )
-                .await
-            {
-                Ok(_) => {
-                    // item (server response) was queued to be send to client
-                }
-                Err(_item) => {
-                    // output_stream was build from rx and both are dropped
-                    break;
-                }
+        let data = match self
+            .data_switch
+            .get_series_data(series_id.as_str(), timerange, 2)
+            .await
+        {
+            Ok(data) => data,
+            Err(e) => {
+                tracing::error!(%e);
+                return Err(Status::not_found(format!(
+                    "data not found by data_switch: {}",
+                    e
+                )));
             }
+        };
 
-            match res {
-                Ok(inner) => {
-                    let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
+        let subdag = self
+            .construct_subdag(tests)
+            .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
-                    for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
-                        let children_completed = children_completed_map
-                            .get(parent_index)
-                            .map(|x| x + 1)
-                            .unwrap_or(1);
+        Ok(RoveService::schedule_tests_series(subdag, data))
+    }
 
-                        children_completed_map.insert(*parent_index, children_completed);
-
-                        if children_completed
-                            >= subdag.nodes.get(*parent_index).unwrap().children.len()
-                        {
-                            test_futures.push(harness::run_test_series(
-                                subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
-                                &data,
-                            ))
-                        }
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    rx
-}
-
-// sad about the amount of repetition here... perhaps we can do better once async
-// closures drop?
-fn schedule_tests_spatial(
-    subdag: Dag<String>,
-    data: SpatialCache,
-) -> Receiver<Result<ValidateSpatialResponse, Status>> {
-    // spawn and channel are required if you want handle "disconnect" functionality
-    // the `out_stream` will not be polled after client disconnect
-    let (tx, rx) = channel(subdag.nodes.len());
-    tokio::spawn(async move {
-        let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
-        let mut test_futures = FuturesUnordered::new();
-
-        for leaf_index in subdag.leaves.clone().into_iter() {
-            test_futures.push(harness::run_test_spatial(
-                subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
-                &data,
+    pub async fn validate_spatial_direct(
+        &self,
+        spatial_id: String,
+        tests: Vec<String>,
+        polygon: Vec<GeoPoint>,
+        time: Timestamp,
+    ) -> Result<Receiver<Result<ValidateSpatialResponse, Status>>, Status> {
+        if tests.is_empty() {
+            return Err(Status::invalid_argument(
+                "request must specify at least 1 test to be run",
             ));
         }
 
-        while let Some(res) = test_futures.next().await {
-            match tx
-                .send(
-                    res.clone()
-                        .map_err(|e| Status::aborted(format!("a test run failed: {}", e))),
-                )
-                .await
-            {
-                Ok(_) => {
-                    // item (server response) was queued to be send to client
-                }
-                Err(_item) => {
-                    // output_stream was build from rx and both are dropped
-                    break;
-                }
+        let data = match self
+            .data_switch
+            .get_spatial_data(polygon, spatial_id.as_str(), time)
+            .await
+        {
+            Ok(data) => data,
+            Err(e) => {
+                tracing::error!(%e);
+                return Err(Status::not_found(format!(
+                    "data not found by data_switch: {}",
+                    e
+                )));
             }
+        };
 
-            match res {
-                Ok(inner) => {
-                    let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
+        let subdag = self
+            .construct_subdag(tests)
+            .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
-                    for parent_index in subdag.nodes.get(*completed_index).unwrap().parents.iter() {
-                        let children_completed = children_completed_map
-                            .get(parent_index)
-                            .map(|x| x + 1)
-                            .unwrap_or(1);
-
-                        children_completed_map.insert(*parent_index, children_completed);
-
-                        if children_completed
-                            >= subdag.nodes.get(*parent_index).unwrap().children.len()
-                        {
-                            test_futures.push(harness::run_test_spatial(
-                                subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
-                                &data,
-                            ))
-                        }
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    rx
+        Ok(RoveService::schedule_tests_spatial(subdag, data))
+    }
 }
 
 #[tonic::async_trait]
@@ -244,16 +318,10 @@ impl Rove for RoveService<'static> {
 
         let req = request.into_inner();
 
-        if req.tests.is_empty() {
-            return Err(Status::invalid_argument(
-                "request must specify at least 1 test to be run",
-            ));
-        }
-
-        let data = match self
-            .data_switch
-            .get_series_data(
-                req.series_id.as_str(),
+        let rx = self
+            .validate_series_direct(
+                req.series_id,
+                req.tests,
                 Timerange {
                     start: Timestamp(
                         req.start_time
@@ -264,29 +332,12 @@ impl Rove for RoveService<'static> {
                     end: Timestamp(
                         req.end_time
                             .as_ref()
-                            .ok_or(Status::invalid_argument("invalid timestamp for end_time"))?
+                            .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
                             .seconds,
                     ),
                 },
-                2,
             )
-            .await
-        {
-            Ok(data) => data,
-            Err(e) => {
-                tracing::error!(%e);
-                return Err(Status::not_found(format!(
-                    "data not found by data_switch: {}",
-                    e
-                )));
-            }
-        };
-
-        let subdag = self
-            .construct_subdag(req.tests)
-            .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
-
-        let rx = schedule_tests_series(subdag, data);
+            .await?;
 
         let output_stream = ReceiverStream::new(rx);
         Ok(Response::new(
@@ -303,17 +354,11 @@ impl Rove for RoveService<'static> {
 
         let req = request.into_inner();
 
-        if req.tests.is_empty() {
-            return Err(Status::invalid_argument(
-                "request must specify at least 1 test to be run",
-            ));
-        }
-
-        let data = match self
-            .data_switch
-            .get_spatial_data(
+        let rx = self
+            .validate_spatial_direct(
+                req.spatial_id,
+                req.tests,
                 req.polygon,
-                req.spatial_id.as_str(),
                 Timestamp(
                     req.time
                         .as_ref()
@@ -321,23 +366,7 @@ impl Rove for RoveService<'static> {
                         .seconds,
                 ),
             )
-            .await
-        {
-            Ok(data) => data,
-            Err(e) => {
-                tracing::error!(%e);
-                return Err(Status::not_found(format!(
-                    "data not found by data_switch: {}",
-                    e
-                )));
-            }
-        };
-
-        let subdag = self
-            .construct_subdag(req.tests)
-            .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
-
-        let rx = schedule_tests_spatial(subdag, data);
+            .await?;
 
         let output_stream = ReceiverStream::new(rx);
         Ok(Response::new(
