@@ -48,8 +48,7 @@ impl<'a> Scheduler<'a> {
                 if let Some(new_index) = nodes_visited.get(child_index) {
                     subdag.add_edge(*nodes_visited.get(&curr_index).unwrap(), *new_index);
                 } else {
-                    let new_index =
-                        subdag.add_node(dag.nodes.get(*child_index).unwrap().elem.clone());
+                    let new_index = subdag.add_node(dag.nodes.get(*child_index).unwrap().elem);
                     subdag.add_edge(*nodes_visited.get(&curr_index).unwrap(), new_index);
 
                     nodes_visited.insert(*child_index, new_index);
@@ -72,8 +71,7 @@ impl<'a> Scheduler<'a> {
                 .ok_or(Error::TestNotInDag(required.as_ref().to_string()))?;
 
             if !nodes_visited.contains_key(index) {
-                let subdag_index =
-                    subdag.add_node(self.dag.nodes.get(*index).unwrap().elem.clone());
+                let subdag_index = subdag.add_node(self.dag.nodes.get(*index).unwrap().elem);
 
                 nodes_visited.insert(*index, subdag_index);
 
