@@ -36,7 +36,7 @@
 //! ```no_run
 //! use rove::{
 //!     server::ListenerType,
-//!     scheduler::RoveService,
+//!     scheduler::Scheduler,
 //!     data_switch::{DataSwitch, DataConnector, Timestamp, Timerange},
 //!     dev_utils::{TestDataSource, construct_hardcoded_dag},
 //! };
@@ -53,9 +53,9 @@
 //!         } as &dyn DataConnector),
 //!     ]));
 //!
-//!     let rove = RoveService::new(construct_hardcoded_dag(), data_switch);
+//!     let rove_scheduler = Scheduler::new(construct_hardcoded_dag(), data_switch);
 //!
-//!     rove.validate_series_direct(
+//!     rove_scheduler.validate_series_direct(
 //!         String::from("test:single"),
 //!         vec![String::from("dip_check"), String::from("step_check")],
 //!         Timerange{
@@ -163,29 +163,29 @@ pub mod dev_utils {
         }
     }
 
-    pub fn construct_fake_dag() -> Dag<String> {
-        let mut dag: Dag<String> = Dag::new();
+    pub fn construct_fake_dag() -> Dag<&'static str> {
+        let mut dag: Dag<&'static str> = Dag::new();
 
-        let test6 = dag.add_node(String::from("test6"));
+        let test6 = dag.add_node("test6");
 
-        let test4 = dag.add_node_with_children(String::from("test4"), vec![test6]);
-        let test5 = dag.add_node_with_children(String::from("test5"), vec![test6]);
+        let test4 = dag.add_node_with_children("test4", vec![test6]);
+        let test5 = dag.add_node_with_children("test5", vec![test6]);
 
-        let test2 = dag.add_node_with_children(String::from("test2"), vec![test4]);
-        let test3 = dag.add_node_with_children(String::from("test3"), vec![test5]);
+        let test2 = dag.add_node_with_children("test2", vec![test4]);
+        let test3 = dag.add_node_with_children("test3", vec![test5]);
 
-        let _test1 = dag.add_node_with_children(String::from("test1"), vec![test2, test3]);
+        let _test1 = dag.add_node_with_children("test1", vec![test2, test3]);
 
         dag
     }
 
-    pub fn construct_hardcoded_dag() -> Dag<String> {
-        let mut dag: Dag<String> = Dag::new();
+    pub fn construct_hardcoded_dag() -> Dag<&'static str> {
+        let mut dag: Dag<&'static str> = Dag::new();
 
-        dag.add_node(String::from("dip_check"));
-        dag.add_node(String::from("step_check"));
-        dag.add_node(String::from("buddy_check"));
-        dag.add_node(String::from("sct"));
+        dag.add_node("dip_check");
+        dag.add_node("step_check");
+        dag.add_node("buddy_check");
+        dag.add_node("sct");
 
         dag
     }

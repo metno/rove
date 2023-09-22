@@ -23,22 +23,24 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct RoveService<'a> {
-    // TODO: the String here can probably be &'a or &'static str
+pub struct Scheduler<'a> {
     // TODO: separate DAGs for series and spatial tests?
-    dag: Dag<String>,
+    dag: Dag<&'static str>,
     data_switch: DataSwitch<'a>,
 }
 
-impl<'a> RoveService<'a> {
-    pub fn new(dag: Dag<String>, data_switch: DataSwitch<'a>) -> Self {
-        RoveService { dag, data_switch }
+impl<'a> Scheduler<'a> {
+    pub fn new(dag: Dag<&'static str>, data_switch: DataSwitch<'a>) -> Self {
+        Scheduler { dag, data_switch }
     }
 
-    fn construct_subdag(&self, required_nodes: Vec<String>) -> Result<Dag<String>, Error> {
+    fn construct_subdag(
+        &self,
+        required_nodes: Vec<impl AsRef<str>>,
+    ) -> Result<Dag<&'static str>, Error> {
         fn add_descendants(
-            dag: &Dag<String>,
-            subdag: &mut Dag<String>,
+            dag: &Dag<&'static str>,
+            subdag: &mut Dag<&'static str>,
             curr_index: NodeId,
             nodes_visited: &mut HashMap<NodeId, NodeId>,
         ) {
@@ -66,8 +68,8 @@ impl<'a> RoveService<'a> {
             let index = self
                 .dag
                 .index_lookup
-                .get(&required)
-                .ok_or(Error::TestNotInDag(required))?;
+                .get(required.as_ref())
+                .ok_or(Error::TestNotInDag(required.as_ref().to_string()))?;
 
             if !nodes_visited.contains_key(index) {
                 let subdag_index =
@@ -83,7 +85,7 @@ impl<'a> RoveService<'a> {
     }
 
     fn schedule_tests_series(
-        subdag: Dag<String>,
+        subdag: Dag<&'static str>,
         data: SeriesCache,
     ) -> Receiver<Result<ValidateSeriesResponse, Status>> {
         // spawn and channel are required if you want handle "disconnect" functionality
@@ -95,7 +97,7 @@ impl<'a> RoveService<'a> {
 
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(harness::run_test_series(
-                    subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
+                    subdag.nodes.get(leaf_index).unwrap().elem,
                     &data,
                 ));
             }
@@ -135,7 +137,7 @@ impl<'a> RoveService<'a> {
                                 >= subdag.nodes.get(*parent_index).unwrap().children.len()
                             {
                                 test_futures.push(harness::run_test_series(
-                                    subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                                    subdag.nodes.get(*parent_index).unwrap().elem,
                                     &data,
                                 ))
                             }
@@ -152,7 +154,7 @@ impl<'a> RoveService<'a> {
     // sad about the amount of repetition here... perhaps we can do better once async
     // closures drop?
     fn schedule_tests_spatial(
-        subdag: Dag<String>,
+        subdag: Dag<&'static str>,
         data: SpatialCache,
     ) -> Receiver<Result<ValidateSpatialResponse, Status>> {
         // spawn and channel are required if you want handle "disconnect" functionality
@@ -164,7 +166,7 @@ impl<'a> RoveService<'a> {
 
             for leaf_index in subdag.leaves.clone().into_iter() {
                 test_futures.push(harness::run_test_spatial(
-                    subdag.nodes.get(leaf_index).unwrap().elem.as_str(),
+                    subdag.nodes.get(leaf_index).unwrap().elem,
                     &data,
                 ));
             }
@@ -204,7 +206,7 @@ impl<'a> RoveService<'a> {
                                 >= subdag.nodes.get(*parent_index).unwrap().children.len()
                             {
                                 test_futures.push(harness::run_test_spatial(
-                                    subdag.nodes.get(*parent_index).unwrap().elem.as_str(),
+                                    subdag.nodes.get(*parent_index).unwrap().elem,
                                     &data,
                                 ))
                             }
@@ -250,7 +252,7 @@ impl<'a> RoveService<'a> {
             .construct_subdag(tests)
             .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
-        Ok(RoveService::schedule_tests_series(subdag, data))
+        Ok(Scheduler::schedule_tests_series(subdag, data))
     }
 
     pub async fn validate_spatial_direct(
@@ -285,7 +287,7 @@ impl<'a> RoveService<'a> {
             .construct_subdag(tests)
             .map_err(|e| Status::not_found(format!("failed to construct subdag: {}", e)))?;
 
-        Ok(RoveService::schedule_tests_spatial(subdag, data))
+        Ok(Scheduler::schedule_tests_spatial(subdag, data))
     }
 }
 
@@ -296,19 +298,15 @@ mod tests {
 
     #[test]
     fn test_construct_subdag() {
-        let rove_service = RoveService::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
+        let rove_service = Scheduler::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
 
         assert_eq!(rove_service.dag.count_edges(), 6);
 
-        let subdag = rove_service
-            .construct_subdag(vec![String::from("test4")])
-            .unwrap();
+        let subdag = rove_service.construct_subdag(vec!["test4"]).unwrap();
 
         assert_eq!(subdag.count_edges(), 1);
 
-        let subdag = rove_service
-            .construct_subdag(vec![String::from("test1")])
-            .unwrap();
+        let subdag = rove_service.construct_subdag(vec!["test1"]).unwrap();
 
         assert_eq!(subdag.count_edges(), 6);
     }
