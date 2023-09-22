@@ -18,7 +18,8 @@ SystemDb_Ext(datasources, "Other data sources", "Other data sources needed for Q
 
 System_Boundary(Confident, "QC system for observations") {
   Container_Boundary(rove, "ROVE") {
-    Component(server, "Server", "Rust", "GRPC server, responds to requests by scheduling QC tests, routes data between the switch and harness")
+    Component(server, "Server", "Rust", "GRPC server, responds to requests by scheduling QC tests")
+    Component(scheduler, "Scheduler", "Rust", "Schedules QC tests, routes data between the switch and harness")
     Component(test_harness, "Test harness", "Rust", "Organises and runs QC tests, interfacing any differences in input or output shape")
     Component(data_switch, "Data switch", "Rust", "Contains connector modules for all available data sources, and routes requests for data to them")
   }
@@ -28,14 +29,15 @@ Rel_U(new_obs_system, kafka, "opens stream, and receives notifications of arriva
 Rel(new_obs_system, oda, "writes QC flags to", "GRPC")
 Rel(new_obs_system, server, "creates automated API calls to, and receives QC flags in return", "GRPC")
 
-Rel(server, data_switch, "requests data needed for QC tests", "function call")
+Rel(server, scheduler, "requests tests to be scheduled", "function call")
+Rel(scheduler, data_switch, "requests data needed for QC tests", "function call")
 
 Rel(data_switch, oda, "gets data needed by cache", "GRPC")
 Rel(data_switch, lustre, "gets data needed by cache", "NFS")
 Rel(data_switch, frost, "gets data needed by cache", "HTTPS")
 Rel(data_switch, datasources, "gets data needed by cache")
 
-Rel(server, test_harness, "requests QC tests to be run on provided data, and receives QC flags in return", "function call")
+Rel(scheduler, test_harness, "requests QC tests to be run on provided data, and receives QC flags in return", "function call")
 
 Rel(user, server, "creates manual API calls, and receives QC flags in return", "GRPC/HTTPS")
 Rel(user, frost, "gets output of QC tests, or more general data quality information from", "HTTPS")
