@@ -1,7 +1,7 @@
 @startuml Confident_Container
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
-LAYOUT_LEFT_RIGHT()
+LAYOUT_TOP_DOWN()
 
 title
   Confident Container diagram

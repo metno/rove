@@ -35,7 +35,8 @@
 //! As a component:
 //! ```no_run
 //! use rove::{
-//!     server::{ListenerType, RoveService},
+//!     server::ListenerType,
+//!     scheduler::RoveService,
 //!     data_switch::{DataSwitch, DataConnector, Timestamp, Timerange},
 //!     dev_utils::{TestDataSource, construct_hardcoded_dag},
 //! };
@@ -77,6 +78,7 @@
 
 pub mod data_switch;
 mod harness;
+pub mod scheduler;
 pub mod server;
 
 pub(crate) mod pb {
