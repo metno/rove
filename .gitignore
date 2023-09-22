@@ -5,3 +5,4 @@
 python_client/*
 docs/plantuml.jar
 ansible/roles/deploy/files/rove_bin
+.DS_store
