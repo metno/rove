@@ -5,7 +5,7 @@ use crate::{
         ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
         ValidateSpatialResponse,
     },
-    scheduler::RoveService,
+    scheduler::Scheduler,
 };
 use dagmar::Dag;
 use futures::Stream;
@@ -24,7 +24,7 @@ pub enum ListenerType {
 }
 
 #[tonic::async_trait]
-impl Rove for RoveService<'static> {
+impl Rove for Scheduler<'static> {
     type ValidateSeriesStream = SeriesResponseStream;
     type ValidateSpatialStream = SpatialResponseStream;
 
@@ -97,11 +97,11 @@ impl Rove for RoveService<'static> {
 pub async fn start_server(
     listener: ListenerType,
     data_switch: DataSwitch<'static>,
-    dag: Dag<String>,
+    dag: Dag<&'static str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match listener {
         ListenerType::Addr(addr) => {
-            let rove_service = RoveService::new(dag, data_switch);
+            let rove_service = Scheduler::new(dag, data_switch);
 
             tracing::info!(message = "Starting server.", %addr);
 
@@ -112,7 +112,7 @@ pub async fn start_server(
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let rove_service = RoveService::new(dag, data_switch);
+            let rove_service = Scheduler::new(dag, data_switch);
 
             Server::builder()
                 .add_service(RoveServer::new(rove_service))

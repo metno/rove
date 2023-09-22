@@ -22,7 +22,7 @@ const DATA_LEN_SPATIAL: usize = 1000;
 
 pub async fn set_up_rove(
     data_switch: DataSwitch<'static>,
-    dag: Dag<String>,
+    dag: Dag<&'static str>,
 ) -> (impl Future<Output = ()>, RoveClient<Channel>) {
     let coordintor_socket = NamedTempFile::new().unwrap();
     let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());
