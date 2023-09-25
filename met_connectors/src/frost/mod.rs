@@ -110,8 +110,8 @@ impl DataConnector for Frost {
 
     async fn get_spatial_data(
         &self,
-        polygon: Vec<GeoPoint>,
         data_id: &str,
+        polygon: Vec<GeoPoint>,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         spatial::get_spatial_data_inner(polygon, data_id, timestamp).await
