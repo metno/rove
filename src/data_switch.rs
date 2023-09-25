@@ -1,3 +1,13 @@
+//! Utilities for creating and using [`DataConnector`](crate::data_switch::DataConnector)s
+//!
+//! Implementations of the [`DataConnector`](crate::data_switch::DataConnector)
+//! trait are how ROVE accesses to data for QC. For any data source you wish ROVE to be able to pull data from, you must write an implementation of
+//! [`DataConnector`](crate::data_switch::DataConnector) for it, and load that
+//! connector into a [`DataSwitch`], which you then pass to
+//! [`server::start_server`](crate::server::start_server) if using ROVE in gRPC
+//! mode, or [`scheduler::Scheduler::new`](crate::scheduler::Scheduler::new)
+//! otherwise.
+
 use async_trait::async_trait;
 use chronoutil::RelativeDuration;
 use olympian::SpatialTree;
@@ -33,15 +43,16 @@ pub enum Error {
 #[derive(Debug)]
 pub struct Timestamp(pub i64);
 
-// pub type GeoPoint = crate::pb::GeoPoint;
-pub use crate::pb::GeoPoint;
-
+/// Inclusive range of time, from a start to end [`Timestamp`]
 pub struct Timerange {
     pub start: Timestamp,
     pub end: Timestamp,
 }
 
-// TODO: move this to olympian?
+/// Specifier of geographic position, by latitude and longitude
+pub use crate::pb::GeoPoint;
+
+/// Container of series data
 pub struct SeriesCache {
     pub start_time: Timestamp,
     pub period: RelativeDuration,
@@ -49,6 +60,10 @@ pub struct SeriesCache {
     pub num_leading_points: u8,
 }
 
+/// Container of spatial data
+///
+/// a [`new`](SpatialCache::new) method is provided to
+/// avoid the need to construct an R*-tree manually
 pub struct SpatialCache {
     pub rtree: SpatialTree,
     pub data: Vec<f32>,
