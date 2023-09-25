@@ -97,6 +97,30 @@ pub trait DataConnector: Sync + std::fmt::Debug {
     ) -> Result<SpatialCache, Error>;
 }
 
+/// Data routing utility for ROVE
+///
+/// This contains a map of &str to [`DataConnector`]s and is used by ROVE to
+/// pull data for QC tests the &str keys in the hashmap correspond to the data
+/// source name you would use in the call to validate_series or validate_spatial.
+/// So in the example below, you would contruct a spatial_id like "test:single"
+/// to direct ROVE to fetch data from `TestDataSource` and pass it the data_id
+/// "single"
+///
+/// ```
+/// use rove::{
+///     data_switch::{DataConnector, DataSwitch},
+///     dev_utils::TestDataSource,
+/// };
+/// use std::collections::HashMap;
+///
+/// let data_switch = DataSwitch::new(HashMap::from([
+///     ("test", &TestDataSource{
+///         data_len_single: 3,
+///         data_len_series: 1000,
+///         data_len_spatial: 1000,
+///     } as &dyn DataConnector),
+/// ]));
+/// ```
 #[derive(Debug)]
 pub struct DataSwitch<'ds> {
     sources: HashMap<&'ds str, &'ds dyn DataConnector>,
