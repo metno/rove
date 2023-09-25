@@ -146,8 +146,8 @@ pub mod dev_utils {
 
         async fn get_spatial_data(
             &self,
+            _data_id: &str,
             _polygon: Vec<GeoPoint>,
-            _spatial_id: &str,
             _timestamp: Timestamp,
         ) -> Result<SpatialCache, data_switch::Error> {
             black_box(Ok(SpatialCache::new(

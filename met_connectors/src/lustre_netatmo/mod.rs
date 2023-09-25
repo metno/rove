@@ -79,8 +79,8 @@ impl DataConnector for LustreNetatmo {
 
     async fn get_spatial_data(
         &self,
+        _data_id: &str,
         _polygon: Vec<GeoPoint>,
-        _extra_spec: &str,
         time: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         tokio::task::spawn_blocking(move || read_netatmo(time)).await?

@@ -79,6 +79,78 @@ impl SpatialCache {
     }
 }
 
+/// Trait for pulling data from data sources
+///
+/// Uses [mod@async_trait]. It is recommended to tag your implementation with
+/// the [`macro@async_trait`] macro to avoid having to deal with pinning,
+/// futures, and lifetimes manually. This trait has two required methods:
+///
+/// - get_series_data: fetch sequential data, i.e. from a time series
+/// - get_spatial_data: fetch data that is distributed spatially, at a single
+/// timestamp
+///
+/// Here is an example implementation that just returns dummy data:
+///
+/// ```
+/// use async_trait::async_trait;
+/// use chronoutil::RelativeDuration;
+/// use rove::data_switch::{self, *};
+///
+/// // You can use the receiver type to store anything that should persist
+/// // between requests, i.e a connection pool
+/// #[derive(Debug)]
+/// struct TestDataSource;
+///
+/// #[async_trait]
+/// impl DataConnector for TestDataSource {
+///     async fn get_series_data(
+///         &self,
+///         // This is the part of spatial_id after the colon. You can
+///         // define its format any way you like, and use it to
+///         // determine what to fetch from the data source.
+///         _data_id: &str,
+///         // The timerange in the series that data is needed from.
+///         _timespec: Timerange,
+///         // Some timeseries QC tests require extra data from before
+///         // the start of the timerange to function. ROVE determines
+///         // how many extra data points are needed, and passes that in
+///         // here.
+///         num_leading_points: u8,
+///     ) -> Result<SeriesCache, data_switch::Error> {
+///         // Here you can do whatever is need to fetch real data, whether
+///         // that's a REST request, SQL call, NFS read etc.
+///
+///         Ok(SeriesCache {
+///             start_time: Timestamp(0),
+///             period: RelativeDuration::minutes(5),
+///             data: vec![Some(1.); 1],
+///             num_leading_points,
+///         })
+///     }
+///
+///     async fn get_spatial_data(
+///         &self,
+///         _data_id: &str,
+///         // This `Vec` of `GeoPoint`s represents a polygon defining the
+///         // area in which data should be fetched. It can be left empty,
+///         // in which case the whole data set should be fetched
+///         _polygon: Vec<GeoPoint>,
+///         // Unix timestamp representing the time of the data to be fetched
+///         _timestamp: Timestamp,
+///     ) -> Result<SpatialCache, data_switch::Error> {
+///         // As above, calls to the data source to get real data go here
+///
+///         Ok(SpatialCache::new(
+///             vec![1.; 1],
+///             vec![1.; 1],
+///             vec![1.; 1],
+///             vec![1.; 1],
+///         ))
+///     }
+/// }
+/// ```
+///
+/// Some real implementations can be found in [rove/met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors)
 #[async_trait]
 pub trait DataConnector: Sync + std::fmt::Debug {
     async fn get_series_data(
@@ -88,11 +160,10 @@ pub trait DataConnector: Sync + std::fmt::Debug {
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error>;
 
-    // TODO: add a str param for extra specification?
     async fn get_spatial_data(
         &self,
+        data_id: &str,
         polygon: Vec<GeoPoint>,
-        spatial_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error>;
 }
@@ -169,7 +240,7 @@ impl<'ds> DataSwitch<'ds> {
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
-            .get_spatial_data(polygon, data_id, timestamp)
+            .get_spatial_data(data_id, polygon, timestamp)
             .await
     }
 }
