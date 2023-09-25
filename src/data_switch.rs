@@ -14,6 +14,11 @@ use olympian::SpatialTree;
 use std::collections::HashMap;
 use thiserror::Error;
 
+/// Error type for DataSwitch
+///
+/// When implementing DataConnector, it may be helpful to implement your own
+/// internal Error type, but it must ultimately be mapped to this type before
+/// returning
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
