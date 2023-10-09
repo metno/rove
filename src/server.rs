@@ -5,11 +5,12 @@ use crate::{
         ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
         ValidateSpatialResponse,
     },
-    scheduler::Scheduler,
+    scheduler::{self, Scheduler},
 };
 use dagmar::Dag;
 use futures::Stream;
 use std::{net::SocketAddr, pin::Pin};
+use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::{ReceiverStream, UnixListenerStream};
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -21,6 +22,23 @@ type SpatialResponseStream =
 enum ListenerType {
     Addr(SocketAddr),
     UnixListener(UnixListenerStream),
+}
+
+impl From<scheduler::Error> for Status {
+    fn from(item: scheduler::Error) -> Self {
+        match item {
+            scheduler::Error::TestNotInDag(s) => {
+                Status::not_found(format!("test name `{}` not found in dag", s))
+            }
+            scheduler::Error::InvalidArg(s) => {
+                Status::invalid_argument(format!("invalid argument: {}", s))
+            }
+            scheduler::Error::Runner(e) => Status::aborted(format!("failed to run test: {}", e)),
+            scheduler::Error::DataSwitch(e) => {
+                Status::not_found(format!("data switch failed to find data: {}", e))
+            }
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -36,8 +54,9 @@ impl Rove for Scheduler<'static> {
         tracing::debug!("Got a request: {:?}", request);
 
         let req = request.into_inner();
+        let req_len = req.tests.len();
 
-        let rx = self
+        let mut rx = self
             .validate_series_direct(
                 req.series_id,
                 req.tests,
@@ -56,9 +75,26 @@ impl Rove for Scheduler<'static> {
                     ),
                 },
             )
-            .await?;
+            .await
+            .map_err(Into::<Status>::into)?;
 
-        let output_stream = ReceiverStream::new(rx);
+        // TODO: remove this channel chaining once async iterators drop
+        let (tx_final, rx_final) = channel(req_len);
+        tokio::spawn(async move {
+            while let Some(i) = rx.recv().await {
+                match tx_final.send(i.map_err(|e| e.into())).await {
+                    Ok(_) => {
+                        // item (server response) was queued to be send to client
+                    }
+                    Err(_item) => {
+                        // output_stream was build from rx and both are dropped
+                        break;
+                    }
+                };
+            }
+        });
+
+        let output_stream = ReceiverStream::new(rx_final);
         Ok(Response::new(
             Box::pin(output_stream) as Self::ValidateSeriesStream
         ))
@@ -72,8 +108,9 @@ impl Rove for Scheduler<'static> {
         tracing::debug!("Got a request: {:?}", request);
 
         let req = request.into_inner();
+        let req_len = req.tests.len();
 
-        let rx = self
+        let mut rx = self
             .validate_spatial_direct(
                 req.spatial_id,
                 req.tests,
@@ -85,9 +122,26 @@ impl Rove for Scheduler<'static> {
                         .seconds,
                 ),
             )
-            .await?;
+            .await
+            .map_err(Into::<Status>::into)?;
 
-        let output_stream = ReceiverStream::new(rx);
+        // TODO: remove this channel chaining once async iterators drop
+        let (tx_final, rx_final) = channel(req_len);
+        tokio::spawn(async move {
+            while let Some(i) = rx.recv().await {
+                match tx_final.send(i.map_err(|e| e.into())).await {
+                    Ok(_) => {
+                        // item (server response) was queued to be send to client
+                    }
+                    Err(_item) => {
+                        // output_stream was build from rx and both are dropped
+                        break;
+                    }
+                };
+            }
+        });
+
+        let output_stream = ReceiverStream::new(rx_final);
         Ok(Response::new(
             Box::pin(output_stream) as Self::ValidateSpatialStream
         ))
