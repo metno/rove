@@ -109,14 +109,17 @@ if __name__ == "__main__":
 ```
 
 ## Use it for production
-ROVE is not yet production-ready.
+**Warning: ROVE is not yet production-ready.**
+
+You can set up your own ROVE instance connected to your own data source. It can work as either a gRPC server that receives requests over the network, or a component within a larger service, where QC runs are triggered by function calls. Examples of both are available in [the documentation](https://docs.rs/rove/).
+
+Of particular note, you will need to provide implementations of [the DataConnector Trait](https://docs.rs/rove/latest/rove/data_switch/trait.DataConnector.html) so that ROVE knows how to talk to your data sources. Some real-world examples of DataConnector implementations can be found under [met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors/src), where frost talks to a http REST API, and lustre_netatmo reads data from csv files over Network File System.
 
 ## Overview of architecture
 ![component diagram](https://github.com/metno/rove/blob/trunk/docs/Confident_Component.png?raw=true)
-TODO: Link to architecture doc?
 
 ## Documentation
-TODO: Link to docs.rs once the crate is published
+Crate documentation is available [here](https://docs.rs/rove/).
 
 ## How to contribute as a developer
-ROVE is still in internal development, and as such, we do not maintain a public issue board. Contributions are more than welcome though, contact Ingrid ([ingridra@met.no](mailto:ingridra@met.no)) and we'll work it out.
+Contributions are welcome, contact Ingrid ([ingridra@met.no](mailto:ingridra@met.no)).
