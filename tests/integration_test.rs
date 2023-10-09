@@ -4,7 +4,7 @@ use pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest, ValidateSpatialRe
 use rove::{
     data_switch::{DataConnector, DataSwitch},
     dev_utils::{construct_fake_dag, construct_hardcoded_dag, TestDataSource},
-    server::{start_server, ListenerType},
+    start_server, ListenerType,
 };
 use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
