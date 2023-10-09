@@ -1,4 +1,5 @@
 use crate::{
+    dag::Dag,
     data_switch::{DataSwitch, Timerange, Timestamp},
     pb::{
         rove_server::{Rove, RoveServer},
@@ -7,7 +8,6 @@ use crate::{
     },
     scheduler::{self, Scheduler},
 };
-use dagmar::Dag;
 use futures::Stream;
 use std::{net::SocketAddr, pin::Pin};
 use tokio::sync::mpsc::channel;

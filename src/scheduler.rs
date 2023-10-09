@@ -1,10 +1,10 @@
 use crate::{
+    dag::{Dag, NodeId},
     data_switch::{self, DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp},
     harness,
     // TODO: rethink this dependency?
     pb::{ValidateSeriesResponse, ValidateSpatialResponse},
 };
-use dagmar::{Dag, NodeId};
 use futures::stream::FuturesUnordered;
 use std::collections::HashMap;
 use thiserror::Error;

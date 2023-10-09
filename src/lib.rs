@@ -88,6 +88,7 @@
 //! }
 //! ```
 
+pub mod dag;
 pub mod data_switch;
 mod harness;
 mod scheduler;
@@ -131,12 +132,14 @@ pub(crate) mod pb {
 
 #[doc(hidden)]
 pub mod dev_utils {
-    use crate::data_switch::{
-        self, DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
+    use crate::{
+        dag::Dag,
+        data_switch::{
+            self, DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
+        },
     };
     use async_trait::async_trait;
     use chronoutil::RelativeDuration;
-    use dagmar::Dag;
     use std::hint::black_box;
 
     #[derive(Debug)]
