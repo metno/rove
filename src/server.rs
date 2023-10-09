@@ -18,7 +18,7 @@ type SeriesResponseStream =
 type SpatialResponseStream =
     Pin<Box<dyn Stream<Item = Result<ValidateSpatialResponse, Status>> + Send>>;
 
-pub enum ListenerType {
+enum ListenerType {
     Addr(SocketAddr),
     UnixListener(UnixListenerStream),
 }
@@ -94,15 +94,15 @@ impl Rove for Scheduler<'static> {
     }
 }
 
-pub async fn start_server(
+async fn start_server_inner(
     listener: ListenerType,
     data_switch: DataSwitch<'static>,
     dag: Dag<&'static str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let rove_service = Scheduler::new(dag, data_switch);
+
     match listener {
         ListenerType::Addr(addr) => {
-            let rove_service = Scheduler::new(dag, data_switch);
-
             tracing::info!(message = "Starting server.", %addr);
 
             Server::builder()
@@ -112,8 +112,6 @@ pub async fn start_server(
                 .await?;
         }
         ListenerType::UnixListener(stream) => {
-            let rove_service = Scheduler::new(dag, data_switch);
-
             Server::builder()
                 .add_service(RoveServer::new(rove_service))
                 .serve_with_incoming(stream)
@@ -122,4 +120,20 @@ pub async fn start_server(
     }
 
     Ok(())
+}
+
+pub async fn start_server_unix_listener(
+    stream: UnixListenerStream,
+    data_switch: DataSwitch<'static>,
+    dag: Dag<&'static str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    start_server_inner(ListenerType::UnixListener(stream), data_switch, dag).await
+}
+
+pub async fn start_server(
+    addr: SocketAddr,
+    data_switch: DataSwitch<'static>,
+    dag: Dag<&'static str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    start_server_inner(ListenerType::Addr(addr), data_switch, dag).await
 }

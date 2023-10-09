@@ -7,7 +7,7 @@
 //! As a standalone service:
 //! ```no_run
 //! use rove::{
-//!     ListenerType, start_server,
+//!     start_server,
 //!     data_switch::{DataSwitch, DataConnector},
 //!     dev_utils::{TestDataSource, construct_hardcoded_dag},
 //! };
@@ -24,7 +24,7 @@
 //!     ]));
 //!
 //!     start_server(
-//!         ListenerType::Addr("[::1]:1337".parse()?),
+//!         "[::1]:1337".parse()?,
 //!         data_switch,
 //!         construct_hardcoded_dag(),
 //!     )
@@ -35,7 +35,6 @@
 //! As a component:
 //! ```no_run
 //! use rove::{
-//!     ListenerType,
 //!     Scheduler,
 //!     data_switch::{DataSwitch, DataConnector, Timestamp, Timerange},
 //!     dev_utils::{TestDataSource, construct_hardcoded_dag},
@@ -83,7 +82,8 @@ mod server;
 
 pub use scheduler::Scheduler;
 pub use server::start_server;
-pub use server::ListenerType;
+#[doc(hidden)]
+pub use server::start_server_unix_listener;
 
 pub(crate) mod pb {
     tonic::include_proto!("rove");
