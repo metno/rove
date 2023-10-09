@@ -4,7 +4,7 @@ use pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest, ValidateSpatialRe
 use rove::{
     data_switch::{DataConnector, DataSwitch},
     dev_utils::{construct_fake_dag, construct_hardcoded_dag, TestDataSource},
-    start_server, ListenerType,
+    start_server_unix_listener,
 };
 use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
@@ -30,13 +30,9 @@ pub async fn set_up_rove(
     let coordintor_uds = UnixListener::bind(&*coordintor_socket).unwrap();
     let coordintor_stream = UnixListenerStream::new(coordintor_uds);
     let coordinator_future = async {
-        start_server(
-            ListenerType::UnixListener(coordintor_stream),
-            data_switch,
-            dag,
-        )
-        .await
-        .unwrap();
+        start_server_unix_listener(coordintor_stream, data_switch, dag)
+            .await
+            .unwrap();
     };
 
     let coordinator_channel = Endpoint::try_from("http://any.url")

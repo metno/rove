@@ -4,7 +4,7 @@ use met_connectors::LustreNetatmo;
 use rove::{
     data_switch::{DataConnector, DataSwitch},
     dev_utils::construct_hardcoded_dag,
-    start_server, ListenerType,
+    start_server,
 };
 use std::collections::HashMap;
 use tracing::Level;
@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ]));
 
     start_server(
-        ListenerType::Addr(args.address.parse()?),
+        args.address.parse()?,
         data_switch,
         construct_hardcoded_dag(),
     )
