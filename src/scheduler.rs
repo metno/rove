@@ -208,10 +208,9 @@ impl<'a> Scheduler<'a> {
         rx
     }
 
-    // TODO: rethink string and error types here
-    pub async fn validate_series_direct(
+    pub async fn validate_series_direct<T: AsRef<str>>(
         &self,
-        series_id: String,
+        series_id: T,
         tests: Vec<String>,
         timerange: Timerange,
     ) -> Result<Receiver<Result<ValidateSeriesResponse, Error>>, Error> {
@@ -221,7 +220,7 @@ impl<'a> Scheduler<'a> {
 
         let data = match self
             .data_switch
-            .get_series_data(series_id.as_str(), timerange, 2)
+            .get_series_data(series_id.as_ref(), timerange, 2)
             .await
         {
             Ok(data) => data,
@@ -236,9 +235,9 @@ impl<'a> Scheduler<'a> {
         Ok(Scheduler::schedule_tests_series(subdag, data))
     }
 
-    pub async fn validate_spatial_direct(
+    pub async fn validate_spatial_direct<T: AsRef<str>>(
         &self,
-        spatial_id: String,
+        spatial_id: T,
         tests: Vec<String>,
         polygon: Vec<GeoPoint>,
         time: Timestamp,
@@ -249,7 +248,7 @@ impl<'a> Scheduler<'a> {
 
         let data = match self
             .data_switch
-            .get_spatial_data(polygon, spatial_id.as_str(), time)
+            .get_spatial_data(polygon, spatial_id.as_ref(), time)
             .await
         {
             Ok(data) => data,
