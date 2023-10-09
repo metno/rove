@@ -1,7 +1,7 @@
 use core::future::Future;
-use dagmar::Dag;
 use pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest, ValidateSpatialRequest};
 use rove::{
+    dag::Dag,
     data_switch::{DataConnector, DataSwitch},
     dev_utils::{construct_fake_dag, construct_hardcoded_dag, TestDataSource},
     start_server_unix_listener,

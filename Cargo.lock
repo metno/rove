@@ -547,11 +547,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dagmar"
-version = "0.1.0"
-source = "git+https://github.com/intarga/dagmar#ca854a44e71baea918386d39e3d037153a8389bc"
-
-[[package]]
 name = "dyn-stack"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1253,7 +1248,6 @@ name = "met_binary"
 version = "0.1.0"
 dependencies = [
  "clap",
- "dagmar",
  "met_connectors",
  "rove",
  "tokio",
@@ -1812,7 +1806,6 @@ dependencies = [
  "chrono",
  "chronoutil",
  "criterion",
- "dagmar",
  "futures",
  "olympian",
  "prost",

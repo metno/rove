@@ -9,7 +9,6 @@ description.workspace = true
 rove = { path = ".." }
 met_connectors = { path = "../met_connectors" }
 tokio.workspace = true
-dagmar.workspace = true
 clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
