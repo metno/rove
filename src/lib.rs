@@ -54,9 +54,9 @@
 //!
 //!     let rove_scheduler = Scheduler::new(construct_hardcoded_dag(), data_switch);
 //!
-//!     rove_scheduler.validate_series_direct(
-//!         String::from("test:single"),
-//!         vec![String::from("dip_check"), String::from("step_check")],
+//!     let mut rx = rove_scheduler.validate_series_direct(
+//!         "test:single",
+//!         vec!["dip_check", "step_check"],
 //!         Timerange{
 //!             start: Timestamp(
 //!                 Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0)
@@ -69,7 +69,20 @@
 //!                     .timestamp(),
 //!             ),
 //!         },
-//!     );
+//!     ).await?;
+//!
+//!     while let Some(response) = rx.recv().await {
+//!         match response {
+//!             Ok(inner) => {
+//!                 println!("\ntest name: {}\n", inner.test);
+//!                 for result in inner.results {
+//!                     println!("timestamp: {}", result.time.unwrap().seconds);
+//!                     println!("flag: {}", result.flag);
+//!                 }
+//!             }
+//!             Err(e) => println!("uh oh, got an error: {}", e),
+//!         }
+//!     }
 //!
 //!     Ok(())
 //! }

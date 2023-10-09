@@ -211,7 +211,7 @@ impl<'a> Scheduler<'a> {
     pub async fn validate_series_direct<T: AsRef<str>>(
         &self,
         series_id: T,
-        tests: Vec<String>,
+        tests: Vec<T>,
         timerange: Timerange,
     ) -> Result<Receiver<Result<ValidateSeriesResponse, Error>>, Error> {
         if tests.is_empty() {
@@ -238,7 +238,7 @@ impl<'a> Scheduler<'a> {
     pub async fn validate_spatial_direct<T: AsRef<str>>(
         &self,
         spatial_id: T,
-        tests: Vec<String>,
+        tests: Vec<T>,
         polygon: Vec<GeoPoint>,
         time: Timestamp,
     ) -> Result<Receiver<Result<ValidateSpatialResponse, Error>>, Error> {
