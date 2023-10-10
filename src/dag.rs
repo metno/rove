@@ -1,25 +1,89 @@
 use std::collections::{BTreeSet, HashMap};
 use std::hash::Hash;
 
+/// Node in a DAG
 #[derive(Debug)]
-pub struct Node<T> {
-    pub elem: T,
+pub(crate) struct Node<Elem> {
+    /// Element of the node, in ROVE's case the name of a QC test
+    pub elem: Elem,
+    /// QC tests this test depends on
     pub children: BTreeSet<NodeId>,
+    /// QC tests that depend on this test
     pub parents: BTreeSet<NodeId>,
 }
 
-pub type NodeId = usize;
+/// Unique identifier for each node in a DAG
+///
+/// These are essentially indices of the nodes vector in the DAG
+pub(crate) type NodeId = usize;
 
+/// [Directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
+/// representation
+///
+/// DAGs are used to define dependencies and pipelines between QC tests in ROVE.
+/// Each node in the DAG represents a QC test, and edges between nodes encode
+/// dependencies, where the parent node is dependent on the child node.
+///
+/// The generic parameter `Elem` represents the data held by a node in the graph.
+/// For most use cases we expect `&'static str` to work here. Strings
+/// containing test names seem a reasonable way to represent QC tests, and these
+/// strings can be reasonably expected to be known at compile time, hence
+/// `'static`
+///
+/// The following code sample shows how to construct a DAG:
+///
+/// ```
+/// use rove::Dag;
+///
+/// let dag = {
+///     // create empty dag
+///     let mut dag: Dag<&'static str> = Dag::new();
+///
+///     // add free-standing node
+///     let test6 = dag.add_node("test6");
+///
+///     // add a node with a dependency on the previously defined node
+///     let test4 = dag.add_node_with_children("test4", vec![test6]);
+///     let test5 = dag.add_node_with_children("test5", vec![test6]);
+///
+///     let test2 = dag.add_node_with_children("test2", vec![test4]);
+///     let test3 = dag.add_node_with_children("test3", vec![test5]);
+///
+///     let _test1 = dag.add_node_with_children("test1", vec![test2, test3]);
+///
+///     dag
+/// };
+///
+/// // Resulting dag should look like:
+/// //
+/// //   6
+/// //   ^
+/// //  / \
+/// // 4   5
+/// // ^   ^
+/// // |   |
+/// // 2   3
+/// // ^   ^
+/// //  \ /
+/// //   1
+/// ```
 #[derive(Debug)]
-pub struct Dag<T: Ord + Hash + Clone> {
-    pub roots: BTreeSet<NodeId>,
-    pub leaves: BTreeSet<NodeId>,
-    pub nodes: Vec<Node<T>>,
-    pub index_lookup: HashMap<T, NodeId>,
+pub struct Dag<Elem: Ord + Hash + Clone> {
+    /// A vector of all nodes in the graph
+    pub(crate) nodes: Vec<Node<Elem>>,
+    /// A set of IDs of the nodes that have no parents
+    pub(crate) roots: BTreeSet<NodeId>,
+    /// A set of IDs of the nodes that have no children
+    pub(crate) leaves: BTreeSet<NodeId>,
+    /// A hashmap of elements (test names in the case of ROVE) to NodeIds
+    ///
+    /// This is useful for finding a node in the graph that represents a
+    /// certain test, without having to walk the whole nodes vector
+    pub(crate) index_lookup: HashMap<Elem, NodeId>,
 }
 
-impl<T: Ord + Hash + Clone> Node<T> {
-    pub fn new(elem: T) -> Self {
+impl<Elem: Ord + Hash + Clone> Node<Elem> {
+    fn new(elem: Elem) -> Self {
         Node {
             elem,
             children: BTreeSet::new(),
@@ -28,7 +92,8 @@ impl<T: Ord + Hash + Clone> Node<T> {
     }
 }
 
-impl<T: Ord + Hash + Clone> Dag<T> {
+impl<Elem: Ord + Hash + Clone> Dag<Elem> {
+    /// Create a new (empty) DAG
     pub fn new() -> Self {
         Dag {
             roots: BTreeSet::new(),
@@ -38,7 +103,8 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         }
     }
 
-    pub fn add_node(&mut self, elem: T) -> NodeId {
+    /// Add a free-standing node to a DAG
+    pub fn add_node(&mut self, elem: Elem) -> NodeId {
         let index = self.nodes.len();
         self.nodes.push(Node::new(elem.clone()));
 
@@ -50,6 +116,8 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         index
     }
 
+    /// Add an edge to the DAG. This defines a dependency, where the parent is
+    /// dependent on the child
     pub fn add_edge(&mut self, parent: NodeId, child: NodeId) {
         // TODO: we can do better than unwrapping here
         self.nodes.get_mut(parent).unwrap().children.insert(child);
@@ -59,7 +127,8 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         self.leaves.remove(&parent);
     }
 
-    pub fn add_node_with_children(&mut self, elem: T, children: Vec<NodeId>) -> NodeId {
+    /// Add a node to the DAG, along with edges representing its dependencies (children)
+    pub fn add_node_with_children(&mut self, elem: Elem, children: Vec<NodeId>) -> NodeId {
         let new_node = self.add_node(elem);
 
         for child in children.into_iter() {
@@ -69,6 +138,7 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         new_node
     }
 
+    /// Removes an edge from the DAG
     fn remove_edge(&mut self, parent: NodeId, child: NodeId) {
         // TODO: we can do better than unwrapping here
         self.nodes.get_mut(parent).unwrap().children.remove(&child);
@@ -99,6 +169,7 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         edge_count
     }
 
+    /// Counts the number of edges in the DAG
     #[cfg(test)]
     pub fn count_edges(&self) -> u32 {
         let mut edge_count = 0;
@@ -132,6 +203,10 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         }
     }
 
+    /// Performs a [transitive reduction](https://en.wikipedia.org/wiki/Transitive_reduction)
+    /// on the DAG
+    ///
+    /// This essentially removes any redundant dependencies in the graph
     pub fn transitive_reduce(&mut self) {
         for root in self.roots.clone().iter() {
             self.transitive_reduce_iter(*root)
@@ -156,6 +231,10 @@ impl<T: Ord + Hash + Clone> Dag<T> {
         false
     }
 
+    /// Check for cycles in the DAG
+    ///
+    /// This can be used to validate a DAG, as a DAG **must not** contain cycles.
+    /// Returns true if a cycle is detected, false otherwise.
     pub fn cycle_check(&self) -> bool {
         let mut ancestors: Vec<NodeId> = Vec::new();
 
@@ -169,7 +248,7 @@ impl<T: Ord + Hash + Clone> Dag<T> {
     }
 }
 
-impl<T: Ord + Hash + Clone> Default for Dag<T> {
+impl<Elem: Ord + Hash + Clone> Default for Dag<Elem> {
     fn default() -> Self {
         Self::new()
     }

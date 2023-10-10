@@ -88,11 +88,14 @@
 //! }
 //! ```
 
-pub mod dag;
+#[warn(missing_docs)]
+mod dag;
 pub mod data_switch;
 mod harness;
 mod scheduler;
 mod server;
+
+pub use dag::Dag;
 
 /// Receiver type for QC runs
 ///
@@ -103,7 +106,7 @@ pub use scheduler::Scheduler;
 ///
 /// Takes a [socket address](std::net::SocketAddr) to listen on, a
 /// [data switch](data_switch::DataSwitch) to provide access to data sources,
-/// and a [dag](dagmar::Dag) to encode dependencies between tests
+/// and a [dag](dag::Dag) to encode dependencies between tests
 pub use server::start_server;
 
 #[doc(hidden)]
@@ -133,10 +136,10 @@ pub(crate) mod pb {
 #[doc(hidden)]
 pub mod dev_utils {
     use crate::{
-        dag::Dag,
         data_switch::{
             self, DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
         },
+        Dag,
     };
     use async_trait::async_trait;
     use chronoutil::RelativeDuration;
