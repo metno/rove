@@ -87,19 +87,17 @@
 //!     Ok(())
 //! }
 //! ```
+//#![warn(missing_docs)]
 
-#[warn(missing_docs)]
 mod dag;
 pub mod data_switch;
 mod harness;
+#[warn(missing_docs)]
 mod scheduler;
 mod server;
 
 pub use dag::Dag;
 
-/// Receiver type for QC runs
-///
-/// Holds information about test dependencies and data sources
 pub use scheduler::Scheduler;
 
 /// Starts up a gRPC server to process QC run requests
