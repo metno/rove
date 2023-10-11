@@ -22,24 +22,35 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
+    /// The series_id was not in a valid format
     #[error("series id `{0}` could not be parsed")]
     InvalidSeriesId(String),
+    /// The no connector was found for that data_source_id in the DataSwitch
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
+    /// The DataConnector or its data source could not parse the data_id
     #[error("data id `{data_id}` could not be parsed by data source {data_source}: {source}")]
     InvalidDataId {
+        /// Name of the relevant data source
         data_source: &'static str,
+        /// The data_id that could not be parsed
         data_id: String,
+        /// The error in the DataConnector
         source: Box<dyn std::error::Error + Send>,
     },
+    /// Generic IO error
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    /// The data source was asked for series data but does not offer it
     #[error("this data source does not offer series data: {0}")]
     SeriesUnimplemented(String),
+    /// The data source was asked for spatial data but does not offer it
     #[error("this data source does not offer spatial data: {0}")]
     SpatialUnimplemented(String),
+    /// Failure to join a tokio task
     #[error("tokio task failure")]
     JoinError(#[from] tokio::task::JoinError),
+    /// Catchall for any other errors that might occur inside a DataConnector object
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send>),
 }
@@ -50,7 +61,9 @@ pub struct Timestamp(pub i64);
 
 /// Inclusive range of time, from a start to end [`Timestamp`]
 pub struct Timerange {
+    /// Start of the timerange
     pub start: Timestamp,
+    /// End of the timerange
     pub end: Timestamp,
 }
 
@@ -59,9 +72,21 @@ pub use crate::pb::GeoPoint;
 
 /// Container of series data
 pub struct SeriesCache {
+    /// Time of the first observation in data
     pub start_time: Timestamp,
+    /// Period of the timeseries, i.e. the time gap between successive elements
     pub period: RelativeDuration,
+    /// Data points of the timeseries in chronological order
+    ///
+    /// `None`s represent gaps in the series
     pub data: Vec<Option<f32>>,
+    /// The number of extra points in the series before the data to be QCed
+    ///
+    /// These points are needed because certain timeseries tests need more
+    /// context around points to be able to QC them. The scheduler looks at
+    /// the list of requested tests to figure out how many leading points will
+    /// be needed, and requests a SeriesCache from the DataSwitch with that
+    /// number of leading points
     pub num_leading_points: u8,
 }
 
@@ -70,11 +95,15 @@ pub struct SeriesCache {
 /// a [`new`](SpatialCache::new) method is provided to
 /// avoid the need to construct an R*-tree manually
 pub struct SpatialCache {
+    /// an [R*-tree](https://en.wikipedia.org/wiki/R*-tree) used to spatially
+    /// index the data
     pub rtree: SpatialTree,
+    /// Data points in the spatial slice
     pub data: Vec<f32>,
 }
 
 impl SpatialCache {
+    /// Create a new SpatialCache without manually constructing the R*-tree
     pub fn new(lats: Vec<f32>, lons: Vec<f32>, elevs: Vec<f32>, values: Vec<f32>) -> Self {
         // TODO: ensure vecs have same size
         Self {
@@ -158,6 +187,7 @@ impl SpatialCache {
 /// Some real implementations can be found in [rove/met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors)
 #[async_trait]
 pub trait DataConnector: Sync + std::fmt::Debug {
+    /// fetch sequential data, i.e. from a time series
     async fn get_series_data(
         &self,
         data_id: &str,
@@ -165,6 +195,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
         num_leading_points: u8,
     ) -> Result<SeriesCache, Error>;
 
+    /// fetch data that is distributed spatially, at a single timestamp
     async fn get_spatial_data(
         &self,
         data_id: &str,
@@ -203,6 +234,9 @@ pub struct DataSwitch<'ds> {
 }
 
 impl<'ds> DataSwitch<'ds> {
+    /// Instantiate a new DataSwitch
+    ///
+    /// See the DataSwitch struct documentation for more info
     pub fn new(sources: HashMap<&'ds str, &'ds dyn DataConnector>) -> Self {
         Self { sources }
     }

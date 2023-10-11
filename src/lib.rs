@@ -90,9 +90,9 @@
 //#![warn(missing_docs)]
 
 mod dag;
+#[warn(missing_docs)]
 pub mod data_switch;
 mod harness;
-#[warn(missing_docs)]
 mod scheduler;
 mod server;
 
