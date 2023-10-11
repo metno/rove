@@ -24,6 +24,9 @@ pub enum Error {
     DataSwitch(#[from] data_switch::Error),
 }
 
+/// Receiver type for QC runs
+///
+/// Holds information about test dependencies and data sources
 #[derive(Debug)]
 pub struct Scheduler<'a> {
     // TODO: separate DAGs for series and spatial tests?
@@ -32,10 +35,13 @@ pub struct Scheduler<'a> {
 }
 
 impl<'a> Scheduler<'a> {
+    /// Instantiate a new scheduler
     pub fn new(dag: Dag<&'static str>, data_switch: DataSwitch<'a>) -> Self {
         Scheduler { dag, data_switch }
     }
 
+    /// Construct a subdag of the given dag with only the required nodes, and their
+    /// dependencies.
     fn construct_subdag(
         &self,
         required_nodes: Vec<impl AsRef<str>>,
@@ -208,6 +214,17 @@ impl<'a> Scheduler<'a> {
         rx
     }
 
+    /// Run a set of timeseries QC tests on some data
+    ///
+    /// `series_id` is a string identifier of the data to be QCed in the form
+    /// "data_source_id:data_id", where `data_source_id` is the key identifying
+    /// a connector in the [`DataSwitch`](data_switch::DataSwitch), and `data_id`
+    /// is an extra identifier that gets passed to the relevant DataConnector.
+    /// The format of data_id is connector-specific. `timerange` represents
+    /// the range of the time in the time series whose data is to be QCed.
+    ///
+    /// `tests` represents the QC tests to be run. Any tests these depend on
+    /// will be found via the [`DAG`](Dag), and run as well.
     pub async fn validate_series_direct<T: AsRef<str>>(
         &self,
         series_id: T,
@@ -235,6 +252,19 @@ impl<'a> Scheduler<'a> {
         Ok(Scheduler::schedule_tests_series(subdag, data))
     }
 
+    /// Run a set of spatial QC tests on some data
+    ///
+    /// `spatial_id` is a string identifier of the data to be QCed in the form
+    /// "data_source_id:data_id", where `data_source_id` is the key identifying
+    /// a connector in the [`DataSwitch`](data_switch::DataSwitch), and `data_id`
+    /// is an extra identifier that gets passed to the relevant DataConnector.
+    /// The format of data_id is connector-specific. `time` represents
+    /// the timestamp of the spatial slice to be QCed, while `polygon` is a vec
+    /// of lat-lon pairs that encode the vertices of a polygon defining the
+    /// region of the spatial slice in which data should be QCed.
+    ///
+    /// `tests` represents the QC tests to be run. Any tests these depend on
+    /// will be found via the [`DAG`](Dag), and run as well.
     pub async fn validate_spatial_direct<T: AsRef<str>>(
         &self,
         spatial_id: T,
