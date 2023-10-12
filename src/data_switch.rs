@@ -129,8 +129,8 @@ impl SpatialCache {
 /// the [`macro@async_trait`] macro to avoid having to deal with pinning,
 /// futures, and lifetimes manually. This trait has two required methods:
 ///
-/// - get_series_data: fetch sequential data, i.e. from a time series
-/// - get_spatial_data: fetch data that is distributed spatially, at a single
+/// - fetch_series_data: fetch sequential data, i.e. from a time series
+/// - fetch_spatial_data: fetch data that is distributed spatially, at a single
 /// timestamp
 ///
 /// Here is an example implementation that just returns dummy data:
@@ -147,7 +147,7 @@ impl SpatialCache {
 ///
 /// #[async_trait]
 /// impl DataConnector for TestDataSource {
-///     async fn get_series_data(
+///     async fn fetch_series_data(
 ///         &self,
 ///         // This is the part of spatial_id after the colon. You can
 ///         // define its format any way you like, and use it to
@@ -172,7 +172,7 @@ impl SpatialCache {
 ///         })
 ///     }
 ///
-///     async fn get_spatial_data(
+///     async fn fetch_spatial_data(
 ///         &self,
 ///         _data_id: &str,
 ///         // This `Vec` of `GeoPoint`s represents a polygon defining the
@@ -198,7 +198,7 @@ impl SpatialCache {
 #[async_trait]
 pub trait DataConnector: Sync + std::fmt::Debug {
     /// fetch sequential data, i.e. from a time series
-    async fn get_series_data(
+    async fn fetch_series_data(
         &self,
         data_id: &str,
         timespec: Timerange,
@@ -206,7 +206,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
     ) -> Result<SeriesCache, Error>;
 
     /// fetch data that is distributed spatially, at a single timestamp
-    async fn get_spatial_data(
+    async fn fetch_spatial_data(
         &self,
         data_id: &str,
         polygon: Vec<GeoPoint>,
@@ -251,7 +251,7 @@ impl<'ds> DataSwitch<'ds> {
         Self { sources }
     }
 
-    pub(crate) async fn get_series_data(
+    pub(crate) async fn fetch_series_data(
         &self,
         series_id: &str,
         timerange: Timerange,
@@ -268,12 +268,12 @@ impl<'ds> DataSwitch<'ds> {
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
-            .get_series_data(data_id, timerange, num_leading_points)
+            .fetch_series_data(data_id, timerange, num_leading_points)
             .await
     }
 
     // TODO: handle backing sources
-    pub(crate) async fn get_spatial_data(
+    pub(crate) async fn fetch_spatial_data(
         &self,
         polygon: Vec<GeoPoint>,
         spatial_id: &str,
@@ -289,7 +289,7 @@ impl<'ds> DataSwitch<'ds> {
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
-            .get_spatial_data(data_id, polygon, timestamp)
+            .fetch_spatial_data(data_id, polygon, timestamp)
             .await
     }
 }

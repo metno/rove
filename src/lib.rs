@@ -147,7 +147,7 @@ pub mod dev_utils {
 
     #[async_trait]
     impl DataConnector for TestDataSource {
-        async fn get_series_data(
+        async fn fetch_series_data(
             &self,
             data_id: &str,
             _timespec: Timerange,
@@ -170,7 +170,7 @@ pub mod dev_utils {
             }
         }
 
-        async fn get_spatial_data(
+        async fn fetch_spatial_data(
             &self,
             _data_id: &str,
             _polygon: Vec<GeoPoint>,
