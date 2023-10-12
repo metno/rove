@@ -68,7 +68,17 @@ pub struct Timerange {
 }
 
 /// Specifier of geographic position, by latitude and longitude
-pub use crate::pb::GeoPoint;
+pub struct GeoPoint {
+    /// latitude, in degrees
+    pub lat: f32,
+    /// longitude, in degrees
+    pub lon: f32,
+}
+
+/// A geospatial polygon
+///
+/// represented by its vertices as a sequence of lat-lon points
+pub type Polygon = Vec<GeoPoint>;
 
 /// Container of series data
 pub struct SeriesCache {
