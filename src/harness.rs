@@ -15,7 +15,7 @@ pub enum Error {
     #[error("test name {0} not found in runner")]
     InvalidTestName(String),
     #[error("failed to run test")]
-    TestFailed(#[from] olympian::Error),
+    FailedTest(#[from] olympian::Error),
     #[error("unknown olympian flag: {0}")]
     UnknownFlag(String),
 }
