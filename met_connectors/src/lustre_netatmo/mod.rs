@@ -72,7 +72,7 @@ impl DataConnector for LustreNetatmo {
         _timespec: Timerange,
         _num_leading_points: u8,
     ) -> Result<SeriesCache, data_switch::Error> {
-        Err(data_switch::Error::SeriesUnimplemented(
+        Err(data_switch::Error::UnimplementedSeries(
             "netatmo files are only in timeslice format".to_string(),
         ))
     }

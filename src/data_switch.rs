@@ -43,13 +43,13 @@ pub enum Error {
     Io(#[from] std::io::Error),
     /// The data source was asked for series data but does not offer it
     #[error("this data source does not offer series data: {0}")]
-    SeriesUnimplemented(String),
+    UnimplementedSeries(String),
     /// The data source was asked for spatial data but does not offer it
     #[error("this data source does not offer spatial data: {0}")]
-    SpatialUnimplemented(String),
+    UnimplementedSpatial(String),
     /// Failure to join a tokio task
     #[error("tokio task failure")]
-    JoinError(#[from] tokio::task::JoinError),
+    Join(#[from] tokio::task::JoinError),
     /// Catchall for any other errors that might occur inside a DataConnector object
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send>),
