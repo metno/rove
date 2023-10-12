@@ -27,7 +27,7 @@ pub enum Error {
 /// Receiver type for QC runs
 ///
 /// Holds information about test dependencies and data sources
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scheduler<'a> {
     // TODO: separate DAGs for series and spatial tests?
     dag: Dag<&'static str>,

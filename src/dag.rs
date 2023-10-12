@@ -1,8 +1,10 @@
-use std::collections::{BTreeSet, HashMap};
-use std::hash::Hash;
+use std::{
+    collections::{BTreeSet, HashMap},
+    hash::Hash,
+};
 
 /// Node in a DAG
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Node<Elem> {
     /// Element of the node, in ROVE's case the name of a QC test
     pub elem: Elem,
@@ -67,7 +69,7 @@ pub(crate) type NodeId = usize;
 /// //  \ /
 /// //   1
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Dag<Elem: Ord + Hash + Clone> {
     /// A vector of all nodes in the graph
     pub(crate) nodes: Vec<Node<Elem>>,

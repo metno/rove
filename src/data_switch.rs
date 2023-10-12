@@ -56,10 +56,11 @@ pub enum Error {
 }
 
 /// Unix timestamp, inner i64 is seconds since unix epoch
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp(pub i64);
 
 /// Inclusive range of time, from a start to end [`Timestamp`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Timerange {
     /// Start of the timerange
     pub start: Timestamp,
@@ -68,6 +69,7 @@ pub struct Timerange {
 }
 
 /// Specifier of geographic position, by latitude and longitude
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GeoPoint {
     /// latitude, in degrees
     pub lat: f32,
@@ -81,6 +83,7 @@ pub struct GeoPoint {
 pub type Polygon = Vec<GeoPoint>;
 
 /// Container of series data
+#[derive(Debug, Clone, PartialEq)]
 pub struct SeriesCache {
     /// Time of the first observation in data
     pub start_time: Timestamp,
@@ -104,6 +107,7 @@ pub struct SeriesCache {
 ///
 /// a [`new`](SpatialCache::new) method is provided to
 /// avoid the need to construct an R*-tree manually
+#[derive(Debug, Clone)]
 pub struct SpatialCache {
     /// an [R*-tree](https://en.wikipedia.org/wiki/R*-tree) used to spatially
     /// index the data
@@ -238,7 +242,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
 ///     } as &dyn DataConnector),
 /// ]));
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DataSwitch<'ds> {
     sources: HashMap<&'ds str, &'ds dyn DataConnector>,
 }
