@@ -36,7 +36,7 @@ pub enum Error {
         /// The data_id that could not be parsed
         data_id: String,
         /// The error in the DataConnector
-        source: Box<dyn std::error::Error + Send>,
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
     /// Generic IO error
     #[error("io error: {0}")]
@@ -52,7 +52,7 @@ pub enum Error {
     Join(#[from] tokio::task::JoinError),
     /// Catchall for any other errors that might occur inside a DataConnector object
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send>),
+    Other(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 /// Unix timestamp, inner i64 is seconds since unix epoch
