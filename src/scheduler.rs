@@ -237,7 +237,7 @@ impl<'a> Scheduler<'a> {
 
         let data = match self
             .data_switch
-            .get_series_data(series_id.as_ref(), timerange, 2)
+            .fetch_series_data(series_id.as_ref(), timerange, 2)
             .await
         {
             Ok(data) => data,
@@ -278,7 +278,7 @@ impl<'a> Scheduler<'a> {
 
         let data = match self
             .data_switch
-            .get_spatial_data(polygon, spatial_id.as_ref(), time)
+            .fetch_spatial_data(polygon, spatial_id.as_ref(), time)
             .await
         {
             Ok(data) => data,

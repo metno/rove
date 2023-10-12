@@ -66,7 +66,7 @@ fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
 
 #[async_trait]
 impl DataConnector for LustreNetatmo {
-    async fn get_series_data(
+    async fn fetch_series_data(
         &self,
         _data_id: &str,
         _timespec: Timerange,
@@ -77,7 +77,7 @@ impl DataConnector for LustreNetatmo {
         ))
     }
 
-    async fn get_spatial_data(
+    async fn fetch_spatial_data(
         &self,
         _data_id: &str,
         _polygon: Vec<GeoPoint>,

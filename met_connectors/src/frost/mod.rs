@@ -99,7 +99,7 @@ where
 
 #[async_trait]
 impl DataConnector for Frost {
-    async fn get_series_data(
+    async fn fetch_series_data(
         &self,
         data_id: &str,
         timerange: Timerange,
@@ -108,7 +108,7 @@ impl DataConnector for Frost {
         series::get_series_data_inner(data_id, timerange, num_leading_points).await
     }
 
-    async fn get_spatial_data(
+    async fn fetch_spatial_data(
         &self,
         data_id: &str,
         polygon: Vec<GeoPoint>,
