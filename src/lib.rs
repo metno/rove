@@ -87,10 +87,10 @@
 //!     Ok(())
 //! }
 //! ```
-//#![warn(missing_docs)]
+
+#![warn(missing_docs)]
 
 mod dag;
-#[warn(missing_docs)]
 pub mod data_switch;
 mod harness;
 mod scheduler;
@@ -100,11 +100,6 @@ pub use dag::Dag;
 
 pub use scheduler::Scheduler;
 
-/// Starts up a gRPC server to process QC run requests
-///
-/// Takes a [socket address](std::net::SocketAddr) to listen on, a
-/// [data switch](data_switch::DataSwitch) to provide access to data sources,
-/// and a [dag](dag::Dag) to encode dependencies between tests
 pub use server::start_server;
 
 #[doc(hidden)]
