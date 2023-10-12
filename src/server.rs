@@ -19,6 +19,7 @@ type SeriesResponseStream =
 type SpatialResponseStream =
     Pin<Box<dyn Stream<Item = Result<ValidateSpatialResponse, Status>> + Send>>;
 
+#[derive(Debug)]
 enum ListenerType {
     Addr(SocketAddr),
     UnixListener(UnixListenerStream),
