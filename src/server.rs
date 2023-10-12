@@ -1,6 +1,6 @@
 use crate::{
     dag::Dag,
-    data_switch::{DataSwitch, Timerange, Timestamp},
+    data_switch::{DataSwitch, GeoPoint, Polygon, Timerange, Timestamp},
     pb::{
         rove_server::{Rove, RoveServer},
         ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
@@ -110,11 +110,20 @@ impl Rove for Scheduler<'static> {
         let req = request.into_inner();
         let req_len = req.tests.len();
 
+        let polygon: Polygon = req
+            .polygon
+            .into_iter()
+            .map(|point| GeoPoint {
+                lat: point.lat,
+                lon: point.lon,
+            })
+            .collect();
+
         let mut rx = self
             .validate_spatial_direct(
                 req.spatial_id,
                 req.tests,
-                req.polygon,
+                polygon,
                 Timestamp(
                     req.time
                         .as_ref()
