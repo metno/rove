@@ -176,6 +176,9 @@ async fn start_server_inner(
     Ok(())
 }
 
+/// Equivalent to `start_server`, but using a unix listener instead of listening
+/// on a socket, to enable more deterministic integration testing.
+#[doc(hidden)]
 pub async fn start_server_unix_listener(
     stream: UnixListenerStream,
     data_switch: DataSwitch<'static>,
@@ -184,6 +187,11 @@ pub async fn start_server_unix_listener(
     start_server_inner(ListenerType::UnixListener(stream), data_switch, dag).await
 }
 
+/// Starts up a gRPC server to process QC run requests
+///
+/// Takes a [socket address](std::net::SocketAddr) to listen on, a
+/// [data switch](DataSwitch) to provide access to data sources,
+/// and a [dag](Dag) to encode dependencies between tests
 pub async fn start_server(
     addr: SocketAddr,
     data_switch: DataSwitch<'static>,
