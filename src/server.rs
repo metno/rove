@@ -60,7 +60,7 @@ impl Rove for Scheduler<'static> {
         let mut rx = self
             .validate_series_direct(
                 req.series_id,
-                req.tests,
+                &req.tests,
                 Timerange {
                     start: Timestamp(
                         req.start_time
@@ -111,19 +111,19 @@ impl Rove for Scheduler<'static> {
         let req = request.into_inner();
         let req_len = req.tests.len();
 
-        let polygon: Polygon = req
+        let polygon: &Polygon = &req
             .polygon
             .into_iter()
             .map(|point| GeoPoint {
                 lat: point.lat,
                 lon: point.lon,
             })
-            .collect();
+            .collect::<Vec<GeoPoint>>();
 
         let mut rx = self
             .validate_spatial_direct(
                 req.spatial_id,
-                req.tests,
+                &req.tests,
                 polygon,
                 Timestamp(
                     req.time

@@ -56,7 +56,7 @@
 //!
 //!     let mut rx = rove_scheduler.validate_series_direct(
 //!         "test:single",
-//!         vec!["dip_check", "step_check"],
+//!         &["dip_check", "step_check"],
 //!         Timerange{
 //!             start: Timestamp(
 //!                 Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0)
@@ -130,7 +130,7 @@ pub(crate) mod pb {
 pub mod dev_utils {
     use crate::{
         data_switch::{
-            self, DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp,
+            self, DataConnector, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp,
         },
         Dag,
     };
@@ -173,7 +173,7 @@ pub mod dev_utils {
         async fn fetch_spatial_data(
             &self,
             _data_id: &str,
-            _polygon: Vec<GeoPoint>,
+            _polygon: &Polygon,
             _timestamp: Timestamp,
         ) -> Result<SpatialCache, data_switch::Error> {
             black_box(Ok(SpatialCache::new(
