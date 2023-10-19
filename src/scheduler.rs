@@ -1,6 +1,6 @@
 use crate::{
     dag::{Dag, NodeId},
-    data_switch::{self, DataSwitch, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{self, DataSwitch, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
     harness,
     // TODO: rethink this dependency?
     pb::{ValidateSeriesResponse, ValidateSpatialResponse},
@@ -44,7 +44,7 @@ impl<'a> Scheduler<'a> {
     /// dependencies.
     fn construct_subdag(
         &self,
-        required_nodes: Vec<impl AsRef<str>>,
+        required_nodes: &[impl AsRef<str>],
     ) -> Result<Dag<&'static str>, Error> {
         fn add_descendants(
             dag: &Dag<&'static str>,
@@ -71,7 +71,7 @@ impl<'a> Scheduler<'a> {
         // this maps NodeIds from the dag to NodeIds from the subdag
         let mut nodes_visited: HashMap<NodeId, NodeId> = HashMap::new();
 
-        for required in required_nodes.into_iter() {
+        for required in required_nodes.iter() {
             let index = self
                 .dag
                 .index_lookup
@@ -225,10 +225,10 @@ impl<'a> Scheduler<'a> {
     ///
     /// `tests` represents the QC tests to be run. Any tests these depend on
     /// will be found via the [`DAG`](Dag), and run as well.
-    pub async fn validate_series_direct<T: AsRef<str>>(
+    pub async fn validate_series_direct(
         &self,
-        series_id: T,
-        tests: Vec<T>,
+        series_id: impl AsRef<str>,
+        tests: &[impl AsRef<str>],
         timerange: Timerange,
     ) -> Result<Receiver<Result<ValidateSeriesResponse, Error>>, Error> {
         if tests.is_empty() {
@@ -265,11 +265,11 @@ impl<'a> Scheduler<'a> {
     ///
     /// `tests` represents the QC tests to be run. Any tests these depend on
     /// will be found via the [`DAG`](Dag), and run as well.
-    pub async fn validate_spatial_direct<T: AsRef<str>>(
+    pub async fn validate_spatial_direct(
         &self,
-        spatial_id: T,
-        tests: Vec<T>,
-        polygon: Vec<GeoPoint>,
+        spatial_id: impl AsRef<str>,
+        tests: &[impl AsRef<str>],
+        polygon: &Polygon,
         time: Timestamp,
     ) -> Result<Receiver<Result<ValidateSpatialResponse, Error>>, Error> {
         if tests.is_empty() {
@@ -305,11 +305,11 @@ mod tests {
 
         assert_eq!(rove_service.dag.count_edges(), 6);
 
-        let subdag = rove_service.construct_subdag(vec!["test4"]).unwrap();
+        let subdag = rove_service.construct_subdag(&vec!["test4"]).unwrap();
 
         assert_eq!(subdag.count_edges(), 1);
 
-        let subdag = rove_service.construct_subdag(vec!["test1"]).unwrap();
+        let subdag = rove_service.construct_subdag(&vec!["test1"]).unwrap();
 
         assert_eq!(subdag.count_edges(), 6);
     }

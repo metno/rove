@@ -1,6 +1,6 @@
 use crate::frost::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
-use rove::data_switch::{self, GeoPoint, SpatialCache, Timestamp};
+use rove::data_switch::{self, Polygon, SpatialCache, Timestamp};
 
 fn extract_metadata(
     mut header: serde_json::Value,
@@ -77,7 +77,7 @@ fn extract_data(
     Ok(data)
 }
 
-fn parse_polygon(polygon: Vec<GeoPoint>) -> String {
+fn parse_polygon(polygon: &Polygon) -> String {
     let mut s = String::new();
     s.push('[');
     let mut first = true;
@@ -109,7 +109,7 @@ fn json_to_spatial_cache(
 }
 
 pub async fn get_spatial_data_inner(
-    polygon: Vec<GeoPoint>,
+    polygon: &Polygon,
     data_id: &str,
     timestamp: Timestamp,
 ) -> Result<SpatialCache, data_switch::Error> {

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataConnector, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
@@ -111,7 +111,7 @@ impl DataConnector for Frost {
     async fn fetch_spatial_data(
         &self,
         data_id: &str,
-        polygon: Vec<GeoPoint>,
+        polygon: &Polygon,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         spatial::get_spatial_data_inner(polygon, data_id, timestamp).await

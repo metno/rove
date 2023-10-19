@@ -80,7 +80,7 @@ pub struct GeoPoint {
 /// A geospatial polygon
 ///
 /// represented by its vertices as a sequence of lat-lon points
-pub type Polygon = Vec<GeoPoint>;
+pub type Polygon = [GeoPoint];
 
 /// Container of series data
 #[derive(Debug, Clone, PartialEq)]
@@ -182,7 +182,7 @@ impl SpatialCache {
 ///         // This `Vec` of `GeoPoint`s represents a polygon defining the
 ///         // area in which data should be fetched. It can be left empty,
 ///         // in which case the whole data set should be fetched
-///         _polygon: Vec<GeoPoint>,
+///         _polygon: &Polygon,
 ///         // Unix timestamp representing the time of the data to be fetched
 ///         _timestamp: Timestamp,
 ///     ) -> Result<SpatialCache, data_switch::Error> {
@@ -213,7 +213,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
     async fn fetch_spatial_data(
         &self,
         data_id: &str,
-        polygon: Vec<GeoPoint>,
+        polygon: &Polygon,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error>;
 }
@@ -279,7 +279,7 @@ impl<'ds> DataSwitch<'ds> {
     // TODO: handle backing sources
     pub(crate) async fn fetch_spatial_data(
         &self,
-        polygon: Vec<GeoPoint>,
+        polygon: &Polygon,
         spatial_id: &str,
         timestamp: Timestamp,
     ) -> Result<SpatialCache, Error> {

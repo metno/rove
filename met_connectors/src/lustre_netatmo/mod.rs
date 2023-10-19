@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataConnector, GeoPoint, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataConnector, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
 };
 use serde::Deserialize;
 use std::{fs::File, io};
@@ -80,7 +80,7 @@ impl DataConnector for LustreNetatmo {
     async fn fetch_spatial_data(
         &self,
         _data_id: &str,
-        _polygon: Vec<GeoPoint>,
+        _polygon: &Polygon,
         time: Timestamp,
     ) -> Result<SpatialCache, data_switch::Error> {
         tokio::task::spawn_blocking(move || read_netatmo(time)).await?
