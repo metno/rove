@@ -225,6 +225,18 @@ impl<'a> Scheduler<'a> {
     ///
     /// `tests` represents the QC tests to be run. Any tests these depend on
     /// will be found via the [`DAG`](Dag), and run as well.
+    ///
+    /// # Errors
+    ///
+    /// Returned from the function if:
+    /// - The provided test array is empty
+    /// - A test in the provided array did not have a matching entry in the DAG
+    /// - The data_source_id component of the provided series_id did not have a
+    ///   matching entry in the Scheduler's DataSwitch
+    ///
+    /// In the the returned channel if:
+    /// - The test harness encounters an error on during one of the QC tests.
+    ///   This will also result in the channel being closed
     pub async fn validate_series_direct(
         &self,
         series_id: impl AsRef<str>,
@@ -265,6 +277,18 @@ impl<'a> Scheduler<'a> {
     ///
     /// `tests` represents the QC tests to be run. Any tests these depend on
     /// will be found via the [`DAG`](Dag), and run as well.
+    ///
+    /// # Errors
+    ///
+    /// Returned from the function if:
+    /// - The provided test array is empty
+    /// - A test in the provided array did not have a matching entry in the DAG
+    /// - The data_source_id component of the provided spatial_id did not have a
+    ///   matching entry in the Scheduler's DataSwitch
+    ///
+    /// In the the returned channel if:
+    /// - The test harness encounters an error on during one of the QC tests.
+    ///   This will also result in the channel being closed
     pub async fn validate_spatial_direct(
         &self,
         spatial_id: impl AsRef<str>,
