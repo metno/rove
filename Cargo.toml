@@ -5,7 +5,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ingrid Rebecca Abraham <git@ingrids.email>"]
 edition = "2021"
 description = "System for real time spatial and timeseries quality control of weather data"
