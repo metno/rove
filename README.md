@@ -30,6 +30,20 @@ It is worth noting that ROVE scales horizontally. If you need more throughput th
 ## Test it out
 To use ROVE you need to [generate bindings](https://grpc.io/docs/languages/python/quickstart/#generate-grpc-code) for the API in the language you want to use. The API definition can be found [here](https://github.com/metno/rove/blob/trunk/proto/rove.proto).
 
+The API has 2 endpoints:
+
+1. **ValidateSeries**, which performs timeseries QC tests, and takes arguments:
+   * **series_id**: a resource locator of the form <data source>:<source-specific identifier>. e.g. oda:123456 where oda is a data source known to the system, and 123456 is a timeseries ID specific to oda
+   * **start_time**: timestamp representing the start of the subseries to be QCed. if not provided, the start of the time series will be used
+   * **end time**: timestamp representing the end of the subseries to be QCed. if not provided, the end of the time series will be used
+   * **tests**: list of the names of tests to be run on the data
+2. **ValidateSpatial**, which performs spatial QC tests, and takes arguments:
+   * **spatial_id**: a resource locator of the form <data source>:<source-specific identifier> e.g. frost:air_temperature where frost is a data source known to the system, and air_temperature is an "element" in frost, specifying that we should only fetch air temperature data
+   * **backing sources**: extra data sources providing data to help qc the first source, but the data from these sources will not be qced themselves
+   * **time**: the timestamp of the spatial data to be QCed
+   * **tests**: list of the names of tests to be run on the data
+   * **polygon**: a list of lat-lon points defining a polygon, used to constrain the spatial slice to be QCed. if not provided, the whole slice will be QCed
+
 Once you've set up bindings here's an example of how to use them to make a request to Met Norway's ROVE server in Python:
 ```python
 import grpc
