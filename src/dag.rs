@@ -70,7 +70,7 @@ pub(crate) type NodeId = usize;
 /// //   1
 /// ```
 #[derive(Debug, Clone)]
-pub struct Dag<Elem: Ord + Hash + Clone> {
+pub struct Dag<Elem: Ord + Hash> {
     /// A vector of all nodes in the graph
     pub(crate) nodes: Vec<Node<Elem>>,
     /// A set of IDs of the nodes that have no parents
@@ -84,7 +84,7 @@ pub struct Dag<Elem: Ord + Hash + Clone> {
     pub(crate) index_lookup: HashMap<Elem, NodeId>,
 }
 
-impl<Elem: Ord + Hash + Clone> Node<Elem> {
+impl<Elem: Ord + Hash> Node<Elem> {
     fn new(elem: Elem) -> Self {
         Node {
             elem,
