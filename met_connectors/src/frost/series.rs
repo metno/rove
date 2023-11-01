@@ -2,6 +2,7 @@ use crate::frost::{duration, Error, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, SeriesCache, Timerange, Timestamp};
+use std::env::args;
 
 fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
     let time_resolution = metadata_resp
@@ -165,8 +166,18 @@ pub async fn get_series_data_inner(
     let interval_start = Utc.timestamp_opt(timerange.start.0, 0).unwrap();
     let interval_end = Utc.timestamp_opt(timerange.end.0, 0).unwrap();
 
+    // get the user id and secret
+    let args: Vec<String> = args().collect();
+    let mut user_id: &str = "";
+    let mut secret: Option<&str> = None;
+    if args.len() >= 2 {
+        user_id = &args[1];
+        secret = Some(&args[2]);
+    }
+
     let metadata_resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .basic_auth(user_id, secret)
         .query(&[
             ("elementids", element_id),
             ("stationids", station_id),
@@ -184,6 +195,7 @@ pub async fn get_series_data_inner(
 
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .basic_auth(user_id, secret)
         .query(&[
             ("elementids", element_id),
             ("stationids", station_id),

@@ -1,6 +1,7 @@
 use crate::frost::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
 use rove::data_switch::{self, Polygon, SpatialCache, Timestamp};
+use std::env::args;
 
 fn extract_metadata(
     mut header: serde_json::Value,
@@ -122,8 +123,18 @@ pub async fn get_spatial_data_inner(
     // Parse the vector of geopoints into an appropriate string
     let polygon_string = parse_polygon(polygon);
 
+    // get the user id and secret
+    let args: Vec<String> = args().collect();
+    let mut user_id: &str = "";
+    let mut secret: Option<&str> = None;
+    if args.len() >= 2 {
+        user_id = &args[1];
+        secret = Some(&args[2]);
+    }
+
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
+        .basic_auth(user_id, secret)
         .query(&[
             ("polygon", polygon_string),
             ("elementids", elementids),
