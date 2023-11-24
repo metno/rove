@@ -28,7 +28,7 @@ Kelem/s = thousand data points per second, M for million.
 It is worth noting that ROVE scales horizontally. If you need more throughput than one node can provide, you can set up as many as you need behind a load balancer, though in most cases it's likely your bottleneck will be your data source.
 
 ## Test it out
-To use ROVE you need to [generate bindings](https://grpc.io/docs/languages/python/quickstart/#generate-grpc-code) for the API in the language you want to use. The API definition can be found [here](https://github.com/metno/rove/blob/trunk/proto/rove.proto).
+To use ROVE you need to [generate bindings](https://grpc.io/docs/languages/python/quickstart/#generate-grpc-code) (a library that allows you to interact with the API) for the API in the language you want to use. The API definition can be found [here](https://github.com/metno/rove/blob/trunk/proto/rove.proto).
 
 The API has 2 endpoints:
 
