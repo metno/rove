@@ -189,6 +189,14 @@ pub mod dev_utils {
         }
     }
 
+    /// A wrapper struct that separates time series and spatial tests
+    /// into two different DAGs
+    #[derive(Debug, Clone)]
+    pub struct ScheduleDag {
+        pub series: Option<Dag<&'static str>>,
+        pub spatial: Option<Dag<&'static str>>,
+    }
+
     pub fn construct_fake_dag() -> ScheduleDag {
         let mut dag: Dag<&'static str> = Dag::new();
 
@@ -206,12 +214,6 @@ pub mod dev_utils {
             series: Some(dag),
             spatial: None,
         }
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct ScheduleDag {
-        pub series: Option<Dag<&'static str>>,
-        pub spatial: Option<Dag<&'static str>>,
     }
 
     pub fn construct_hardcoded_dag() -> ScheduleDag {
