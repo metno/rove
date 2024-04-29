@@ -1,6 +1,7 @@
 use crate::{
     dag::{Dag, NodeId},
     data_switch::{self, DataSwitch, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
+    dev_utils::ScheduleDag,
     harness,
     // TODO: rethink this dependency?
     pb::{ValidateSeriesResponse, ValidateSpatialResponse},
@@ -30,20 +31,20 @@ pub enum Error {
 #[derive(Debug, Clone)]
 pub struct Scheduler<'a> {
     // TODO: separate DAGs for series and spatial tests?
-    dag: Dag<&'static str>,
+    dag: ScheduleDag,
     data_switch: DataSwitch<'a>,
 }
 
 impl<'a> Scheduler<'a> {
     /// Instantiate a new scheduler
-    pub fn new(dag: Dag<&'static str>, data_switch: DataSwitch<'a>) -> Self {
+    pub fn new(dag: ScheduleDag, data_switch: DataSwitch<'a>) -> Self {
         Scheduler { dag, data_switch }
     }
 
     /// Construct a subdag of the given dag with only the required nodes, and their
     /// dependencies.
     fn construct_subdag(
-        &self,
+        dag: &Dag<&'static str>,
         required_nodes: &[impl AsRef<str>],
     ) -> Result<Dag<&'static str>, Error> {
         fn add_descendants(
@@ -72,18 +73,17 @@ impl<'a> Scheduler<'a> {
         let mut nodes_visited: HashMap<NodeId, NodeId> = HashMap::new();
 
         for required in required_nodes.iter() {
-            let index = self
-                .dag
+            let index = dag
                 .index_lookup
                 .get(required.as_ref())
                 .ok_or(Error::TestNotInDag(required.as_ref().to_string()))?;
 
             if !nodes_visited.contains_key(index) {
-                let subdag_index = subdag.add_node(self.dag.nodes.get(*index).unwrap().elem);
+                let subdag_index = subdag.add_node(dag.nodes.get(*index).unwrap().elem);
 
                 nodes_visited.insert(*index, subdag_index);
 
-                add_descendants(&self.dag, &mut subdag, *index, &mut nodes_visited);
+                add_descendants(dag, &mut subdag, *index, &mut nodes_visited);
             }
         }
 
@@ -161,6 +161,7 @@ impl<'a> Scheduler<'a> {
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = channel(subdag.nodes.len());
         tokio::spawn(async move {
+            // TODO(manuel): add IntervalStream/SleepStream here? And add `interval` field to Scheduler?
             let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
             let mut test_futures = FuturesUnordered::new();
 
@@ -259,7 +260,7 @@ impl<'a> Scheduler<'a> {
             }
         };
 
-        let subdag = self.construct_subdag(tests)?;
+        let subdag = Scheduler::construct_subdag(self.dag.series.as_ref().unwrap(), tests)?;
 
         Ok(Scheduler::schedule_tests_series(subdag, data))
     }
@@ -312,7 +313,7 @@ impl<'a> Scheduler<'a> {
             }
         };
 
-        let subdag = self.construct_subdag(tests)?;
+        let subdag = Scheduler::construct_subdag(self.dag.spatial.as_ref().unwrap(), tests)?;
 
         Ok(Scheduler::schedule_tests_spatial(subdag, data))
     }
@@ -327,13 +328,17 @@ mod tests {
     fn test_construct_subdag() {
         let rove_service = Scheduler::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
 
-        assert_eq!(rove_service.dag.count_edges(), 6);
+        assert_eq!(rove_service.dag.series.as_ref().unwrap().count_edges(), 6);
 
-        let subdag = rove_service.construct_subdag(&vec!["test4"]).unwrap();
+        let subdag =
+            Scheduler::construct_subdag(rove_service.dag.series.as_ref().unwrap(), &vec!["test4"])
+                .unwrap();
 
         assert_eq!(subdag.count_edges(), 1);
 
-        let subdag = rove_service.construct_subdag(&vec!["test1"]).unwrap();
+        let subdag =
+            Scheduler::construct_subdag(rove_service.dag.series.as_ref().unwrap(), &vec!["test1"])
+                .unwrap();
 
         assert_eq!(subdag.count_edges(), 6);
     }

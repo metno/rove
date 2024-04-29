@@ -189,7 +189,7 @@ pub mod dev_utils {
         }
     }
 
-    pub fn construct_fake_dag() -> Dag<&'static str> {
+    pub fn construct_fake_dag() -> ScheduleDag {
         let mut dag: Dag<&'static str> = Dag::new();
 
         let test6 = dag.add_node("test6");
@@ -202,17 +202,30 @@ pub mod dev_utils {
 
         let _test1 = dag.add_node_with_children("test1", vec![test2, test3]);
 
-        dag
+        ScheduleDag {
+            series: Some(dag),
+            spatial: None,
+        }
     }
 
-    pub fn construct_hardcoded_dag() -> Dag<&'static str> {
-        let mut dag: Dag<&'static str> = Dag::new();
+    #[derive(Debug, Clone)]
+    pub struct ScheduleDag {
+        pub series: Option<Dag<&'static str>>,
+        pub spatial: Option<Dag<&'static str>>,
+    }
 
-        dag.add_node("dip_check");
-        dag.add_node("step_check");
-        dag.add_node("buddy_check");
-        dag.add_node("sct");
+    pub fn construct_hardcoded_dag() -> ScheduleDag {
+        let mut series: Dag<&'static str> = Dag::new();
+        series.add_node("dip_check");
+        series.add_node("step_check");
 
-        dag
+        let mut spatial: Dag<&'static str> = Dag::new();
+        spatial.add_node("buddy_check");
+        spatial.add_node("sct");
+
+        ScheduleDag {
+            series: Some(series),
+            spatial: Some(spatial),
+        }
     }
 }

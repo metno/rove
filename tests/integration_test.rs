@@ -2,8 +2,8 @@ use core::future::Future;
 use pb::{rove_client::RoveClient, Flag, ValidateSeriesRequest, ValidateSpatialRequest};
 use rove::{
     data_switch::{DataConnector, DataSwitch},
-    dev_utils::{construct_fake_dag, construct_hardcoded_dag, TestDataSource},
-    start_server_unix_listener, Dag,
+    dev_utils::{construct_fake_dag, construct_hardcoded_dag, ScheduleDag, TestDataSource},
+    start_server_unix_listener,
 };
 use std::{collections::HashMap, sync::Arc};
 use tempfile::NamedTempFile;
@@ -21,7 +21,7 @@ const DATA_LEN_SPATIAL: usize = 1000;
 
 pub async fn set_up_rove(
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    dag: ScheduleDag,
 ) -> (impl Future<Output = ()>, RoveClient<Channel>) {
     let coordintor_socket = NamedTempFile::new().unwrap();
     let coordintor_socket = Arc::new(coordintor_socket.into_temp_path());

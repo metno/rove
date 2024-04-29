@@ -1,6 +1,7 @@
 use crate::{
     dag::Dag,
     data_switch::{DataSwitch, GeoPoint, Polygon, Timerange, Timestamp},
+    dev_utils::ScheduleDag,
     pb::{
         rove_server::{Rove, RoveServer},
         ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
@@ -161,7 +162,7 @@ impl Rove for Scheduler<'static> {
 async fn start_server_inner(
     listener: ListenerType,
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    dag: ScheduleDag,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let rove_service = Scheduler::new(dag, data_switch);
 
@@ -192,7 +193,7 @@ async fn start_server_inner(
 pub async fn start_server_unix_listener(
     stream: UnixListenerStream,
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    dag: ScheduleDag,
 ) -> Result<(), Box<dyn std::error::Error>> {
     start_server_inner(ListenerType::UnixListener(stream), data_switch, dag).await
 }
@@ -205,7 +206,7 @@ pub async fn start_server_unix_listener(
 pub async fn start_server(
     addr: SocketAddr,
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    dag: ScheduleDag,
 ) -> Result<(), Box<dyn std::error::Error>> {
     start_server_inner(ListenerType::Addr(addr), data_switch, dag).await
 }
