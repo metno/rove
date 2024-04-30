@@ -130,7 +130,7 @@ You can set up your own ROVE instance connected to your own data source. It can 
 Of particular note, you will need to provide implementations of [the DataConnector Trait](https://docs.rs/rove/latest/rove/data_switch/trait.DataConnector.html) so that ROVE knows how to talk to your data sources. Some real-world examples of DataConnector implementations can be found under [met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors/src), where frost talks to a http REST API, and lustre_netatmo reads data from csv files over Network File System.
 
 ## Overview of architecture
-![component diagram](https://github.com/metno/rove/blob/trunk/docs/Confident_Component.png?raw=true)
+![component diagram](https://github.com/metno/rove/blob/trunk/docs/Confident_Component.svg)
 
 ## Documentation
 Crate documentation is available [here](https://docs.rs/rove/).
