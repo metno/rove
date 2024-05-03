@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
+use chronoutil::RelativeDuration;
 use rove::{
     data_switch,
-    data_switch::{DataConnector, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataCache, DataConnector, Polygon, Timerange, Timestamp},
 };
 use serde::Deserialize;
 use std::{fs::File, io};
@@ -24,7 +25,7 @@ struct Record {
     dqc: u32,
 }
 
-fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
+fn read_netatmo(time: Timestamp) -> Result<DataCache, data_switch::Error> {
     // timestamp should be validated before it gets here, so it should be safe to unwrap
     let time = Utc.timestamp_opt(time.0, 0).unwrap();
 
@@ -57,11 +58,19 @@ fn read_netatmo(time: Timestamp) -> Result<SpatialCache, data_switch::Error> {
             lats.push(record.lat);
             lons.push(record.lon);
             elevs.push(record.elev);
-            values.push(record.value);
+            values.push(Some(record.value));
         }
     }
 
-    Ok(SpatialCache::new(lats, lons, elevs, values))
+    Ok(DataCache::new(
+        lats,
+        lons,
+        elevs,
+        Timestamp(0),
+        RelativeDuration::minutes(5),
+        0,
+        vec![values; 1],
+    ))
 }
 
 #[async_trait]
@@ -71,7 +80,7 @@ impl DataConnector for LustreNetatmo {
         _data_id: &str,
         _timespec: Timerange,
         _num_leading_points: u8,
-    ) -> Result<SeriesCache, data_switch::Error> {
+    ) -> Result<DataCache, data_switch::Error> {
         Err(data_switch::Error::UnimplementedSeries(
             "netatmo files are only in timeslice format".to_string(),
         ))
@@ -82,7 +91,7 @@ impl DataConnector for LustreNetatmo {
         _data_id: &str,
         _polygon: &Polygon,
         time: Timestamp,
-    ) -> Result<SpatialCache, data_switch::Error> {
+    ) -> Result<DataCache, data_switch::Error> {
         tokio::task::spawn_blocking(move || read_netatmo(time)).await?
     }
 }

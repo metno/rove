@@ -1,6 +1,6 @@
 use crate::{
     dag::{Dag, NodeId},
-    data_switch::{self, DataSwitch, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{self, DataCache, DataSwitch, Polygon, Timerange, Timestamp},
     harness,
     // TODO: rethink this dependency?
     pb::{ValidateSeriesResponse, ValidateSpatialResponse},
@@ -92,7 +92,7 @@ impl<'a> Scheduler<'a> {
 
     fn schedule_tests_series(
         subdag: Dag<&'static str>,
-        data: SeriesCache,
+        data: DataCache,
     ) -> Receiver<Result<ValidateSeriesResponse, Error>> {
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
@@ -155,7 +155,7 @@ impl<'a> Scheduler<'a> {
     // closures drop?
     fn schedule_tests_spatial(
         subdag: Dag<&'static str>,
-        data: SpatialCache,
+        data: DataCache,
     ) -> Receiver<Result<ValidateSpatialResponse, Error>> {
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect

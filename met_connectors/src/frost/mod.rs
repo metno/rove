@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataConnector, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp},
+    data_switch::{DataCache, DataConnector, Polygon, Timerange, Timestamp},
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
@@ -104,7 +104,7 @@ impl DataConnector for Frost {
         data_id: &str,
         timerange: Timerange,
         num_leading_points: u8,
-    ) -> Result<SeriesCache, data_switch::Error> {
+    ) -> Result<DataCache, data_switch::Error> {
         series::get_series_data_inner(data_id, timerange, num_leading_points).await
     }
 
@@ -113,7 +113,7 @@ impl DataConnector for Frost {
         data_id: &str,
         polygon: &Polygon,
         timestamp: Timestamp,
-    ) -> Result<SpatialCache, data_switch::Error> {
+    ) -> Result<DataCache, data_switch::Error> {
         spatial::get_spatial_data_inner(polygon, data_id, timestamp).await
     }
 }

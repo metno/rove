@@ -1,7 +1,7 @@
 use crate::frost::{duration, Error, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
-use rove::data_switch::{self, SeriesCache, Timerange, Timestamp};
+use rove::data_switch::{self, DataCache, Timerange, Timestamp};
 
 fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
     let time_resolution = metadata_resp
@@ -71,7 +71,7 @@ fn json_to_series_cache(
     num_leading_points: u8,
     interval_start: DateTime<Utc>,
     interval_end: DateTime<Utc>,
-) -> Result<SeriesCache, Error> {
+) -> Result<DataCache, Error> {
     let obses: Vec<FrostObs> = extract_obs(resp)?;
 
     // TODO: preallocate?
@@ -134,19 +134,22 @@ fn json_to_series_cache(
         curr_obs_time = curr_obs_time + period;
     }
 
-    Ok(SeriesCache {
+    Ok(DataCache::new(
+        vec![0.; 1],
+        vec![0.; 1],
+        vec![0.; 1],
         start_time,
         period,
-        data,
         num_leading_points,
-    })
+        vec![data; 1],
+    ))
 }
 
 pub async fn get_series_data_inner(
     data_id: &str,
     timerange: Timerange,
     num_leading_points: u8,
-) -> Result<SeriesCache, data_switch::Error> {
+) -> Result<DataCache, data_switch::Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -342,7 +345,7 @@ mod tests {
             Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0).unwrap(),
         );
         assert_eq!(
-            series_cache.data,
+            series_cache.data[0],
             vec![Some(27.3999996), Some(25.7999992), Some(26.)]
         );
     }
