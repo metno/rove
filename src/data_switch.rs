@@ -86,12 +86,12 @@ pub type Polygon = [GeoPoint];
 ///
 /// a [`new`](DataCache::new) method is provided to
 /// avoid the need to construct an R*-tree manually
-// TODO: check why we need to derive PartialEq
+// TODO: check why we needed to derive PartialEq for SeriesCache
 #[derive(Debug, Clone)]
 pub struct DataCache {
     /// Vector of timeseries in chronological order.
     /// The timeseries data can originate from a single station or from
-    /// a collection of them
+    /// a collection of neighboring stations
     ///
     /// `None`s represent gaps in the series
     pub data: Vec<Vec<Option<f32>>>,
