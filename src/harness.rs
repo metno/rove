@@ -1,5 +1,5 @@
 use crate::{
-    data_switch::{SeriesCache, SpatialCache},
+    data_switch::DataCache,
     pb::{
         Flag, GeoPoint, SeriesTestResult, SpatialTestResult, ValidateSeriesResponse,
         ValidateSpatialResponse,
@@ -22,7 +22,7 @@ pub enum Error {
 
 pub async fn run_test_series(
     test: &str,
-    cache: &SeriesCache,
+    cache: &DataCache,
 ) -> Result<ValidateSeriesResponse, Error> {
     let flags: Vec<Flag> = match test {
         // TODO: put these in a lookup table?
@@ -31,25 +31,41 @@ pub async fn run_test_series(
 
             // TODO: use actual test params
             // TODO: use par_iter?
-            cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
-                .windows((LEADING_PER_RUN + 1).into())
-                .map(|window| {
-                    olympian::dip_check(window, 2., 3.)?
-                        .try_into()
-                        .map_err(Error::UnknownFlag)
-                })
-                .collect::<Result<Vec<Flag>, Error>>()?
+
+            let mut result_vec = Vec::new();
+            for i in 0..cache.data.len() {
+                result_vec.push(
+                    cache.data[i]
+                        [(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data[i].len()]
+                        .windows((LEADING_PER_RUN + 1).into())
+                        .map(|window| {
+                            olympian::dip_check(window, 2., 3.)?
+                                .try_into()
+                                .map_err(Error::UnknownFlag)
+                        })
+                        .collect::<Result<Vec<Flag>, Error>>()?,
+                )
+            }
+            result_vec[0].clone()
         }
         "step_check" => {
             const LEADING_PER_RUN: u8 = 1;
-            cache.data[(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data.len()]
-                .windows((LEADING_PER_RUN + 1).into())
-                .map(|window| {
-                    olympian::step_check(window, 2., 3.)?
-                        .try_into()
-                        .map_err(Error::UnknownFlag)
-                })
-                .collect::<Result<Vec<Flag>, Error>>()?
+
+            let mut result_vec = Vec::new();
+            for i in 0..cache.data.len() {
+                result_vec.push(
+                    cache.data[i]
+                        [(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data[i].len()]
+                        .windows((LEADING_PER_RUN + 1).into())
+                        .map(|window| {
+                            olympian::step_check(window, 2., 3.)?
+                                .try_into()
+                                .map_err(Error::UnknownFlag)
+                        })
+                        .collect::<Result<Vec<Flag>, Error>>()?,
+                )
+            }
+            result_vec[0].clone()
         }
         _ => {
             if test.starts_with("test") {
@@ -85,49 +101,65 @@ pub async fn run_test_series(
 #[allow(clippy::match_single_binding)]
 pub async fn run_test_spatial(
     test: &str,
-    cache: &SpatialCache,
+    cache: &DataCache,
 ) -> Result<ValidateSpatialResponse, Error> {
     let flags: Vec<Flag> = match test {
         "buddy_check" => {
+            let mut result_vec = Vec::new();
             let n = cache.data.len();
-            olympian::buddy_check(
-                &cache.rtree,
-                &cache.data,
-                &vec![5000.; n],
-                &vec![2; n],
-                2.,
-                200.,
-                0.,
-                1.,
-                2,
-                &vec![true; n],
-            )?
-            .into_iter()
-            .map(|flag| flag.try_into().map_err(Error::UnknownFlag))
-            .collect::<Result<Vec<Flag>, Error>>()?
+            for i in 0..cache.data[0].len() {
+                // TODO: change `buddy_check` to accept Option<f32>
+                let inner: Vec<f32> = cache.data.iter().map(|v| v[i].unwrap()).collect();
+                result_vec.push(
+                    olympian::buddy_check(
+                        &cache.rtree,
+                        &inner,
+                        &vec![5000.; n],
+                        &vec![2; n],
+                        2.,
+                        200.,
+                        0.,
+                        1.,
+                        2,
+                        &vec![true; n],
+                    )?
+                    .into_iter()
+                    .map(|flag| flag.try_into().map_err(Error::UnknownFlag))
+                    .collect::<Result<Vec<Flag>, Error>>()?,
+                )
+            }
+            result_vec[0].clone()
         }
         "sct" => {
+            let mut result_vec = Vec::new();
             let n = cache.data.len();
-            olympian::sct(
-                &cache.rtree,
-                &cache.data,
-                5,
-                100,
-                50000.,
-                150000.,
-                5,
-                20,
-                200.,
-                10000.,
-                200.,
-                &vec![4.; n],
-                &vec![8.; n],
-                &vec![0.5; n],
-                None,
-            )?
-            .into_iter()
-            .map(|flag| flag.try_into().map_err(Error::UnknownFlag))
-            .collect::<Result<Vec<Flag>, Error>>()?
+
+            for i in 0..cache.data[0].len() {
+                let inner: Vec<f32> = cache.data.iter().map(|v| v[i].unwrap()).collect();
+                result_vec.push(
+                    olympian::sct(
+                        &cache.rtree,
+                        &inner,
+                        5,
+                        100,
+                        50000.,
+                        150000.,
+                        5,
+                        20,
+                        200.,
+                        10000.,
+                        200.,
+                        &vec![4.; n],
+                        &vec![8.; n],
+                        &vec![0.5; n],
+                        None,
+                    )?
+                    .into_iter()
+                    .map(|flag| flag.try_into().map_err(Error::UnknownFlag))
+                    .collect::<Result<Vec<Flag>, Error>>()?,
+                );
+            }
+            result_vec[0].clone()
         }
         _ => {
             if test.starts_with("test") {

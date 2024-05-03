@@ -1,6 +1,7 @@
 use crate::frost::{Error, FrostLatLonElev, FrostLocation, FrostObs};
 use chrono::prelude::*;
-use rove::data_switch::{self, Polygon, SpatialCache, Timestamp};
+use chronoutil::RelativeDuration;
+use rove::data_switch::{self, DataCache, Polygon, Timestamp};
 
 fn extract_metadata(
     mut header: serde_json::Value,
@@ -97,22 +98,30 @@ fn parse_polygon(polygon: &Polygon) -> String {
 fn json_to_spatial_cache(
     resp: serde_json::Value,
     timestamp: DateTime<Utc>,
-) -> Result<SpatialCache, Error> {
+) -> Result<DataCache, Error> {
     let data = extract_data(resp, timestamp)?;
 
     let lats: Vec<f32> = data.iter().map(|d| d.1.latitude).collect();
     let lons: Vec<f32> = data.iter().map(|d| d.1.longitude).collect();
     let elevs: Vec<f32> = data.iter().map(|d| d.1.elevation).collect();
-    let values: Vec<f32> = data.iter().map(|d| d.0.body.value).collect();
+    let values: Vec<Option<f32>> = data.iter().map(|d| Some(d.0.body.value)).collect();
 
-    Ok(SpatialCache::new(lats, lons, elevs, values))
+    Ok(DataCache::new(
+        lats,
+        lons,
+        elevs,
+        Timestamp(0),
+        RelativeDuration::minutes(5),
+        0,
+        vec![values; 1],
+    ))
 }
 
 pub async fn get_spatial_data_inner(
     polygon: &Polygon,
     data_id: &str,
     timestamp: Timestamp,
-) -> Result<SpatialCache, data_switch::Error> {
+) -> Result<DataCache, data_switch::Error> {
     // TODO: figure out how to share the client between rove reqs
     let client = reqwest::Client::new();
 
@@ -404,6 +413,6 @@ mod tests {
             json_to_spatial_cache(resp, Utc.with_ymd_and_hms(2023, 6, 30, 12, 0, 0).unwrap())
                 .unwrap();
 
-        assert_eq!(spatial_cache.data.len(), 3);
+        assert_eq!(spatial_cache.data[0].len(), 3);
     }
 }

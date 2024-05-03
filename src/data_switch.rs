@@ -82,17 +82,26 @@ pub struct GeoPoint {
 /// represented by its vertices as a sequence of lat-lon points
 pub type Polygon = [GeoPoint];
 
-/// Container of series data
-#[derive(Debug, Clone, PartialEq)]
-pub struct SeriesCache {
+/// Data container
+///
+/// a [`new`](DataCache::new) method is provided to
+/// avoid the need to construct an R*-tree manually
+// TODO: check why we need to derive PartialEq
+#[derive(Debug, Clone)]
+pub struct DataCache {
+    /// Vector of timeseries in chronological order.
+    /// The timeseries data can originate from a single station or from
+    /// a collection of them
+    ///
+    /// `None`s represent gaps in the series
+    pub data: Vec<Vec<Option<f32>>>,
     /// Time of the first observation in data
     pub start_time: Timestamp,
     /// Period of the timeseries, i.e. the time gap between successive elements
     pub period: RelativeDuration,
-    /// Data points of the timeseries in chronological order
-    ///
-    /// `None`s represent gaps in the series
-    pub data: Vec<Option<f32>>,
+    /// an [R*-tree](https://en.wikipedia.org/wiki/R*-tree) used to spatially
+    /// index the data
+    pub rtree: SpatialTree,
     /// The number of extra points in the series before the data to be QCed
     ///
     /// These points are needed because certain timeseries tests need more
@@ -103,26 +112,24 @@ pub struct SeriesCache {
     pub num_leading_points: u8,
 }
 
-/// Container of spatial data
-///
-/// a [`new`](SpatialCache::new) method is provided to
-/// avoid the need to construct an R*-tree manually
-#[derive(Debug, Clone)]
-pub struct SpatialCache {
-    /// an [R*-tree](https://en.wikipedia.org/wiki/R*-tree) used to spatially
-    /// index the data
-    pub rtree: SpatialTree,
-    /// Data points in the spatial slice
-    pub data: Vec<f32>,
-}
-
-impl SpatialCache {
-    /// Create a new SpatialCache without manually constructing the R*-tree
-    pub fn new(lats: Vec<f32>, lons: Vec<f32>, elevs: Vec<f32>, values: Vec<f32>) -> Self {
+impl DataCache {
+    /// Create a new DataCache without manually constructing the R*-tree
+    pub fn new(
+        lats: Vec<f32>,
+        lons: Vec<f32>,
+        elevs: Vec<f32>,
+        start_time: Timestamp,
+        period: RelativeDuration,
+        num_leading_points: u8,
+        values: Vec<Vec<Option<f32>>>,
+    ) -> Self {
         // TODO: ensure vecs have same size
         Self {
             rtree: SpatialTree::from_latlons(lats, lons, elevs),
             data: values,
+            start_time,
+            period,
+            num_leading_points,
         }
     }
 }
@@ -137,67 +144,6 @@ impl SpatialCache {
 /// - fetch_spatial_data: fetch data that is distributed spatially, at a single
 /// timestamp
 ///
-/// Here is an example implementation that just returns dummy data:
-///
-/// ```
-/// use async_trait::async_trait;
-/// use chronoutil::RelativeDuration;
-/// use rove::data_switch::{self, *};
-///
-/// // You can use the receiver type to store anything that should persist
-/// // between requests, i.e a connection pool
-/// #[derive(Debug)]
-/// struct TestDataSource;
-///
-/// #[async_trait]
-/// impl DataConnector for TestDataSource {
-///     async fn fetch_series_data(
-///         &self,
-///         // This is the part of spatial_id after the colon. You can
-///         // define its format any way you like, and use it to
-///         // determine what to fetch from the data source.
-///         _data_id: &str,
-///         // The timerange in the series that data is needed from.
-///         _timespec: Timerange,
-///         // Some timeseries QC tests require extra data from before
-///         // the start of the timerange to function. ROVE determines
-///         // how many extra data points are needed, and passes that in
-///         // here.
-///         num_leading_points: u8,
-///     ) -> Result<SeriesCache, data_switch::Error> {
-///         // Here you can do whatever is need to fetch real data, whether
-///         // that's a REST request, SQL call, NFS read etc.
-///
-///         Ok(SeriesCache {
-///             start_time: Timestamp(0),
-///             period: RelativeDuration::minutes(5),
-///             data: vec![Some(1.); 1],
-///             num_leading_points,
-///         })
-///     }
-///
-///     async fn fetch_spatial_data(
-///         &self,
-///         _data_id: &str,
-///         // This `Vec` of `GeoPoint`s represents a polygon defining the
-///         // area in which data should be fetched. It can be left empty,
-///         // in which case the whole data set should be fetched
-///         _polygon: &Polygon,
-///         // Unix timestamp representing the time of the data to be fetched
-///         _timestamp: Timestamp,
-///     ) -> Result<SpatialCache, data_switch::Error> {
-///         // As above, calls to the data source to get real data go here
-///
-///         Ok(SpatialCache::new(
-///             vec![1.; 1],
-///             vec![1.; 1],
-///             vec![1.; 1],
-///             vec![1.; 1],
-///         ))
-///     }
-/// }
-/// ```
-///
 /// Some real implementations can be found in [rove/met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors)
 #[async_trait]
 pub trait DataConnector: Sync + std::fmt::Debug {
@@ -207,7 +153,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
         data_id: &str,
         timespec: Timerange,
         num_leading_points: u8,
-    ) -> Result<SeriesCache, Error>;
+    ) -> Result<DataCache, Error>;
 
     /// fetch data that is distributed spatially, at a single timestamp
     async fn fetch_spatial_data(
@@ -215,7 +161,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
         data_id: &str,
         polygon: &Polygon,
         timestamp: Timestamp,
-    ) -> Result<SpatialCache, Error>;
+    ) -> Result<DataCache, Error>;
 }
 
 /// Data routing utility for ROVE
@@ -260,7 +206,7 @@ impl<'ds> DataSwitch<'ds> {
         series_id: &str,
         timerange: Timerange,
         num_leading_points: u8,
-    ) -> Result<SeriesCache, Error> {
+    ) -> Result<DataCache, Error> {
         // TODO: check these names still make sense
         let (data_source_id, data_id) = series_id
             .split_once(':')
@@ -282,7 +228,7 @@ impl<'ds> DataSwitch<'ds> {
         polygon: &Polygon,
         spatial_id: &str,
         timestamp: Timestamp,
-    ) -> Result<SpatialCache, Error> {
+    ) -> Result<DataCache, Error> {
         let (data_source_id, data_id) = spatial_id
             .split_once(':')
             .ok_or_else(|| Error::InvalidSeriesId(spatial_id.to_string()))?;

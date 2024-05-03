@@ -129,9 +129,7 @@ pub(crate) mod pb {
 #[doc(hidden)]
 pub mod dev_utils {
     use crate::{
-        data_switch::{
-            self, DataConnector, Polygon, SeriesCache, SpatialCache, Timerange, Timestamp,
-        },
+        data_switch::{self, DataCache, DataConnector, Polygon, Timerange, Timestamp},
         Dag,
     };
     use async_trait::async_trait;
@@ -152,20 +150,26 @@ pub mod dev_utils {
             data_id: &str,
             _timespec: Timerange,
             num_leading_points: u8,
-        ) -> Result<SeriesCache, data_switch::Error> {
+        ) -> Result<DataCache, data_switch::Error> {
             match data_id {
-                "single" => black_box(Ok(SeriesCache {
-                    start_time: Timestamp(0),
-                    period: RelativeDuration::minutes(5),
-                    data: vec![Some(1.); self.data_len_single],
+                "single" => black_box(Ok(DataCache::new(
+                    vec![0.; 1],
+                    vec![0.; 1],
+                    vec![0.; 1],
+                    Timestamp(0),
+                    RelativeDuration::minutes(5),
                     num_leading_points,
-                })),
-                "series" => black_box(Ok(SeriesCache {
-                    start_time: Timestamp(0),
-                    period: RelativeDuration::minutes(5),
-                    data: vec![Some(1.); self.data_len_spatial],
+                    vec![vec![Some(1.); self.data_len_single]; 1],
+                ))),
+                "series" => black_box(Ok(DataCache::new(
+                    vec![0.; 1],
+                    vec![0.; 1],
+                    vec![0.; 1],
+                    Timestamp(0),
+                    RelativeDuration::minutes(5),
                     num_leading_points,
-                })),
+                    vec![vec![Some(1.); self.data_len_spatial]; 1],
+                ))),
                 _ => panic!("unknown data_id"),
             }
         }
@@ -175,8 +179,8 @@ pub mod dev_utils {
             _data_id: &str,
             _polygon: &Polygon,
             _timestamp: Timestamp,
-        ) -> Result<SpatialCache, data_switch::Error> {
-            black_box(Ok(SpatialCache::new(
+        ) -> Result<DataCache, data_switch::Error> {
+            black_box(Ok(DataCache::new(
                 (0..self.data_len_spatial)
                     .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
                     .collect(),
@@ -184,7 +188,10 @@ pub mod dev_utils {
                     .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
                     .collect(),
                 vec![1.; self.data_len_spatial],
-                vec![1.; self.data_len_spatial],
+                Timestamp(0),
+                RelativeDuration::minutes(5),
+                0,
+                vec![vec![Some(1.); 1]; self.data_len_spatial],
             )))
         }
     }
