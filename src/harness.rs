@@ -32,11 +32,14 @@ pub async fn run_test_series(
             // TODO: use actual test params
             // TODO: use par_iter?
 
-            let mut result_vec = Vec::new();
+            let mut result_vec = Vec::with_capacity(cache.data.len());
+
+            // NOTE: Does data in each series have the same len?
+            let series_len = cache.data[0].len();
+
             for i in 0..cache.data.len() {
                 result_vec.push(
-                    cache.data[i]
-                        [(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data[i].len()]
+                    cache.data[i][(cache.num_leading_points - LEADING_PER_RUN).into()..series_len]
                         .windows((LEADING_PER_RUN + 1).into())
                         .map(|window| {
                             olympian::dip_check(window, 2., 3.)?
@@ -51,11 +54,14 @@ pub async fn run_test_series(
         "step_check" => {
             const LEADING_PER_RUN: u8 = 1;
 
-            let mut result_vec = Vec::new();
+            let mut result_vec = Vec::with_capacity(cache.data.len());
+
+            // NOTE: Does data in each series have the same len?
+            let series_len = cache.data[0].len();
+
             for i in 0..cache.data.len() {
                 result_vec.push(
-                    cache.data[i]
-                        [(cache.num_leading_points - LEADING_PER_RUN).into()..cache.data[i].len()]
+                    cache.data[i][(cache.num_leading_points - LEADING_PER_RUN).into()..series_len]
                         .windows((LEADING_PER_RUN + 1).into())
                         .map(|window| {
                             olympian::step_check(window, 2., 3.)?
@@ -108,7 +114,7 @@ pub async fn run_test_spatial(
             let mut result_vec = Vec::new();
             let n = cache.data.len();
             for i in 0..cache.data[0].len() {
-                // TODO: change `buddy_check` to accept Option<f32>
+                // TODO: change `buddy_check` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v[i].unwrap()).collect();
                 result_vec.push(
                     olympian::buddy_check(
@@ -135,6 +141,7 @@ pub async fn run_test_spatial(
             let n = cache.data.len();
 
             for i in 0..cache.data[0].len() {
+                // TODO: change `sct` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v[i].unwrap()).collect();
                 result_vec.push(
                     olympian::sct(
