@@ -3,8 +3,10 @@ use chrono::prelude::*;
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, DataCache, Polygon, Timestamp};
 
-fn extract_metadata(
-    mut header: serde_json::Value,
+use super::series::extract_duration;
+
+pub(crate) fn extract_location(
+    header: &mut serde_json::Value,
     time: DateTime<Utc>,
 ) -> Result<FrostLatLonElev, Error> {
     let location = header
@@ -38,7 +40,8 @@ fn extract_metadata(
 fn extract_data(
     mut resp: serde_json::Value,
     time: DateTime<Utc>,
-) -> Result<Vec<(FrostObs, FrostLatLonElev)>, Error> {
+    // TODO: maybe a struct would be better here
+) -> Result<Vec<(FrostObs, FrostLatLonElev, RelativeDuration)>, Error> {
     let ts_portion: &mut Vec<serde_json::Value> = resp
         .get_mut("data")
         .ok_or(Error::FindObs(
@@ -54,26 +57,32 @@ fn extract_data(
     let data = ts_portion
         .iter_mut()
         .map(|ts| {
+            // TODO: this should be a Vec<FrostObs>?
             let obs: FrostObs = serde_json::from_value(
                 ts.get_mut("observations")
                     .ok_or(Error::FindObs(
                         "couldn't find observations field on tseries".to_string(),
                     ))?
                     .get_mut(0)
-                    .ok_or(Error::FindObs("couldn't find first obs".to_string()))?
-                    .take(),
-            )?;
-            let lat_lon_elev = extract_metadata(
-                ts.get_mut("header")
                     .ok_or(Error::FindObs(
-                        "couldn't find header field on tseries".to_string(),
+                        "couldn't find first observation".to_string(),
                     ))?
                     .take(),
-                time,
             )?;
-            Ok((obs, lat_lon_elev))
+
+            let header = ts.get_mut("header").ok_or(Error::FindObs(
+                "couldn't find header field on tseries".to_string(),
+            ))?;
+            let location = extract_location(header, time)?;
+
+            // default to one hour if `timeseries` section is missing in the metadata
+            // TODO: we might not need this inside here, since we want all stations
+            // to have the same time resolution
+            let time_resolution = extract_duration(header).unwrap_or(RelativeDuration::hours(1));
+
+            Ok((obs, location, time_resolution))
         })
-        .collect::<Result<Vec<(FrostObs, FrostLatLonElev)>, Error>>()?;
+        .collect::<Result<Vec<(FrostObs, FrostLatLonElev, RelativeDuration)>, Error>>()?;
 
     Ok(data)
 }
@@ -95,25 +104,22 @@ fn parse_polygon(polygon: &Polygon) -> String {
     s
 }
 
-fn json_to_spatial_cache(
-    resp: serde_json::Value,
-    timestamp: DateTime<Utc>,
-) -> Result<DataCache, Error> {
-    let data = extract_data(resp, timestamp)?;
+fn json_to_spatial_cache(resp: serde_json::Value, time: DateTime<Utc>) -> Result<DataCache, Error> {
+    let data = extract_data(resp, time)?;
 
     let lats: Vec<f32> = data.iter().map(|d| d.1.latitude).collect();
     let lons: Vec<f32> = data.iter().map(|d| d.1.longitude).collect();
     let elevs: Vec<f32> = data.iter().map(|d| d.1.elevation).collect();
-    let values: Vec<Option<f32>> = data.iter().map(|d| Some(d.0.body.value)).collect();
+    let values: Vec<Vec<Option<f32>>> = data.iter().map(|d| vec![Some(d.0.body.value)]).collect();
+
+    // TODO: different stations might have different time resolutions (or even no time resolution, see json below)
+    // In the future we want to either tweak the request or filter the response
+    // so that all the stations have the same time resolution and start_time
+    let start_time = Timestamp(data[0].0.time.timestamp());
+    let period = data[0].2;
 
     Ok(DataCache::new(
-        lats,
-        lons,
-        elevs,
-        Timestamp(0),
-        RelativeDuration::minutes(5),
-        0,
-        vec![values; 1],
+        lats, lons, elevs, start_time, period, 0, values,
     ))
 }
 
@@ -413,6 +419,6 @@ mod tests {
             json_to_spatial_cache(resp, Utc.with_ymd_and_hms(2023, 6, 30, 12, 0, 0).unwrap())
                 .unwrap();
 
-        assert_eq!(spatial_cache.data[0].len(), 3);
+        assert_eq!(spatial_cache.data.len(), 3);
     }
 }

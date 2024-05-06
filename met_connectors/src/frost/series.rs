@@ -1,10 +1,37 @@
-use crate::frost::{duration, Error, FrostObs};
+use crate::frost::{duration, Error, FrostLatLonElev, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, DataCache, Timerange, Timestamp};
 
-fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDuration, Error> {
-    let time_resolution = metadata_resp
+use super::spatial::extract_location;
+
+pub(crate) fn extract_duration(header: &mut serde_json::Value) -> Result<RelativeDuration, Error> {
+    let time_resolution = header
+        .get_mut("extra")
+        .ok_or(Error::FindMetadata(
+            "couldn't find field extra on header".to_string(),
+        ))?
+        .get_mut("timeseries")
+        .ok_or(Error::FindMetadata(
+            "couldn't find field timeseries on extra".to_string(),
+        ))?
+        .get_mut("timeresolution")
+        .ok_or(Error::FindMetadata(
+            "couldn't find field timeresolution on timeseries".to_string(),
+        ))?
+        .as_str()
+        .ok_or(Error::FindMetadata(
+            "field timeresolution was not a string".to_string(),
+        ))?;
+
+    duration::parse_duration(time_resolution).map_err(|e| Error::ParseDuration {
+        source: e,
+        input: time_resolution.to_string(),
+    })
+}
+
+fn extract_header(mut metadata_resp: serde_json::Value) -> Result<serde_json::Value, Error> {
+    let header = metadata_resp
         .get_mut("data")
         .ok_or(Error::FindMetadata(
             "couldn't find data field on root".to_string(),
@@ -19,31 +46,16 @@ fn extract_duration(mut metadata_resp: serde_json::Value) -> Result<RelativeDura
         .ok_or(Error::FindMetadata(
             "couldn't find field header on 1st tseries".to_string(),
         ))?
-        .get_mut("extra")
-        .ok_or(Error::FindMetadata(
-            "couldn't find field extra on header".to_string(),
-        ))?
-        .get_mut("timeseries")
-        .ok_or(Error::FindMetadata(
-            "couldn't find field timeseries on extra".to_string(),
-        ))?
-        .get_mut("timeresolution")
-        .ok_or(Error::FindMetadata(
-            "couldn't find field timeresolution on quality".to_string(),
-        ))?
-        .as_str()
-        .ok_or(Error::FindMetadata(
-            "field timeresolution was not a string".to_string(),
-        ))?;
+        .take();
 
-    duration::parse_duration(time_resolution).map_err(|e| Error::ParseDuration {
-        source: e,
-        input: time_resolution.to_string(),
-    })
+    Ok(header)
 }
 
-fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
-    let obs_portion = resp
+fn extract_data(
+    mut resp: serde_json::Value,
+    time: DateTime<Utc>,
+) -> Result<(Vec<FrostObs>, FrostLatLonElev), Error> {
+    let ts_portion = resp
         .get_mut("data")
         .ok_or(Error::FindObs(
             "couldn't find data field on root".to_string(),
@@ -53,16 +65,26 @@ fn extract_obs(mut resp: serde_json::Value) -> Result<Vec<FrostObs>, Error> {
             "couldn't find tseries field on data".to_string(),
         ))?
         .get_mut(0)
-        .ok_or(Error::FindObs("tseries array is empty".to_string()))?
-        .get_mut("observations")
-        .ok_or(Error::FindObs(
-            "couldn't observations data field on 1st tseries".to_string(),
-        ))?
-        .take();
+        .ok_or(Error::FindObs("tseries array is empty".to_string()))?;
 
-    let obs: Vec<FrostObs> = serde_json::from_value(obs_portion)?;
+    let obs = serde_json::from_value(
+        ts_portion
+            .get_mut("observations")
+            .ok_or(Error::FindObs(
+                "couldn't find observations field on tseries".to_string(),
+            ))?
+            .take(),
+    )?;
 
-    Ok(obs)
+    // TODO: Should there be a location for each observation?
+    let location = extract_location(
+        ts_portion.get_mut("header").ok_or(Error::FindObs(
+            "couldn't find header field on tseries".to_string(),
+        ))?,
+        time,
+    )?;
+
+    Ok((obs, location))
 }
 
 fn json_to_series_cache(
@@ -72,7 +94,7 @@ fn json_to_series_cache(
     interval_start: DateTime<Utc>,
     interval_end: DateTime<Utc>,
 ) -> Result<DataCache, Error> {
-    let obses: Vec<FrostObs> = extract_obs(resp)?;
+    let (obses, location) = extract_data(resp, interval_start)?;
 
     // TODO: preallocate?
     // let ts_length = (end_time - first_obs_time) / period;
@@ -135,13 +157,13 @@ fn json_to_series_cache(
     }
 
     Ok(DataCache::new(
-        vec![0.; 1],
-        vec![0.; 1],
-        vec![0.; 1],
+        vec![location.latitude],
+        vec![location.longitude],
+        vec![location.elevation],
         start_time,
         period,
         num_leading_points,
-        vec![data; 1],
+        vec![data],
     ))
 }
 
@@ -182,8 +204,10 @@ pub async fn get_series_data_inner(
         .await
         .map_err(|e| data_switch::Error::Other(Box::new(Error::Request(e))))?;
 
-    let period =
-        extract_duration(metadata_resp).map_err(|e| data_switch::Error::Other(Box::new(e)))?;
+    let mut metadata_header =
+        extract_header(metadata_resp).map_err(|e| data_switch::Error::Other(Box::new(e)))?;
+    let period = extract_duration(&mut metadata_header)
+        .map_err(|e| data_switch::Error::Other(Box::new(e)))?;
 
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
