@@ -25,9 +25,11 @@ struct Record {
     dqc: u32,
 }
 
-fn read_netatmo(time: Timestamp) -> Result<DataCache, data_switch::Error> {
+fn read_netatmo(timestamp: Timestamp) -> Result<DataCache, data_switch::Error> {
     // timestamp should be validated before it gets here, so it should be safe to unwrap
-    let time = Utc.timestamp_opt(time.0, 0).unwrap();
+    let time = Utc.timestamp_opt(timestamp.0, 0).unwrap();
+    // TODO: time resolution might change in the future
+    let period = RelativeDuration::hours(1);
 
     if time.minute() != 0 || time.second() != 0 {
         return Err(io::Error::new(
@@ -58,18 +60,12 @@ fn read_netatmo(time: Timestamp) -> Result<DataCache, data_switch::Error> {
             lats.push(record.lat);
             lons.push(record.lon);
             elevs.push(record.elev);
-            values.push(Some(record.value));
+            values.push(vec![Some(record.value)]);
         }
     }
 
     Ok(DataCache::new(
-        lats,
-        lons,
-        elevs,
-        Timestamp(0),
-        RelativeDuration::minutes(5),
-        0,
-        vec![values; 1],
+        lats, lons, elevs, timestamp, period, 0, values,
     ))
 }
 
