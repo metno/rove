@@ -111,9 +111,11 @@ pub async fn run_test_spatial(
 ) -> Result<ValidateSpatialResponse, Error> {
     let flags: Vec<Flag> = match test {
         "buddy_check" => {
-            let mut result_vec = Vec::new();
             let n = cache.data.len();
-            for i in 0..cache.data[0].len() {
+
+            let series_len = cache.data[0].len();
+            let mut result_vec = Vec::with_capacity(series_len);
+            for i in 0..series_len {
                 // TODO: change `buddy_check` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v[i].unwrap()).collect();
                 result_vec.push(
@@ -137,10 +139,11 @@ pub async fn run_test_spatial(
             result_vec[0].clone()
         }
         "sct" => {
-            let mut result_vec = Vec::new();
             let n = cache.data.len();
 
-            for i in 0..cache.data[0].len() {
+            let series_len = cache.data[0].len();
+            let mut result_vec = Vec::with_capacity(series_len);
+            for i in 0..series_len {
                 // TODO: change `sct` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v[i].unwrap()).collect();
                 result_vec.push(
