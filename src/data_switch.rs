@@ -82,18 +82,17 @@ pub struct GeoPoint {
 /// represented by its vertices as a sequence of lat-lon points
 pub type Polygon = [GeoPoint];
 
-/// Data container
+/// Container for metereological data
 ///
 /// a [`new`](DataCache::new) method is provided to
 /// avoid the need to construct an R*-tree manually
-// TODO: check why we needed to derive PartialEq for SeriesCache
 #[derive(Debug, Clone)]
 pub struct DataCache {
-    /// Vector of timeseries in chronological order.
-    /// The timeseries data can originate from a single station or from
-    /// a collection of neighboring stations
+    /// Vector of timeseries.
     ///
-    /// `None`s represent gaps in the series
+    /// Each inner vector represents a timeseries, with its data points in chronological order.
+    /// All these timeseries are aligned on start_time and period.
+    /// `None`s represent gaps in the series.
     pub data: Vec<Vec<Option<f32>>>,
     /// Time of the first observation in data
     pub start_time: Timestamp,
@@ -121,12 +120,12 @@ impl DataCache {
         start_time: Timestamp,
         period: RelativeDuration,
         num_leading_points: u8,
-        values: Vec<Vec<Option<f32>>>,
+        data: Vec<Vec<Option<f32>>>,
     ) -> Self {
         // TODO: ensure vecs have same size
         Self {
             rtree: SpatialTree::from_latlons(lats, lons, elevs),
-            data: values,
+            data,
             start_time,
             period,
             num_leading_points,
@@ -143,6 +142,73 @@ impl DataCache {
 /// - fetch_series_data: fetch sequential data, i.e. from a time series
 /// - fetch_spatial_data: fetch data that is distributed spatially, at a single
 /// timestamp
+///
+/// Here is an example implementation that just returns dummy data:
+///
+/// ```
+/// use async_trait::async_trait;
+/// use chronoutil::RelativeDuration;
+/// use rove::data_switch::{self, *};
+///
+/// // You can use the receiver type to store anything that should persist
+/// // between requests, i.e a connection pool
+/// #[derive(Debug)]
+/// struct TestDataSource;
+///
+/// #[async_trait]
+/// impl DataConnector for TestDataSource {
+///     async fn fetch_series_data(
+///         &self,
+///         // This is the part of spatial_id after the colon. You can
+///         // define its format any way you like, and use it to
+///         // determine what to fetch from the data source.
+///         _data_id: &str,
+///         // The timerange in the series that data is needed from.
+///         _timespec: Timerange,
+///         // Some timeseries QC tests require extra data from before
+///         // the start of the timerange to function. ROVE determines
+///         // how many extra data points are needed, and passes that in
+///         // here.
+///         num_leading_points: u8,
+///     ) -> Result<DataCache, data_switch::Error> {
+///         // Here you can do whatever is need to fetch real data, whether
+///         // that's a REST request, SQL call, NFS read etc.
+///
+///         Ok(DataCache::new(
+///             vec![1.],
+///             vec![1.],
+///             vec![1.],
+///             Timestamp(0),
+///             RelativeDuration::minutes(5),
+///             num_leading_points,
+///             vec![vec![Some(1.)]]
+///         ))
+///     }
+///
+///     async fn fetch_spatial_data(
+///         &self,
+///         _data_id: &str,
+///         // This `Vec` of `GeoPoint`s represents a polygon defining the
+///         // area in which data should be fetched. It can be left empty,
+///         // in which case the whole data set should be fetched
+///         _polygon: &Polygon,
+///         // Unix timestamp representing the time of the data to be fetched
+///         timestamp: Timestamp,
+///     ) -> Result<DataCache, data_switch::Error> {
+///         // As above, calls to the data source to get real data go here
+///
+///         Ok(DataCache::new(
+///             vec![1.],
+///             vec![1.],
+///             vec![1.],
+///             timestamp,
+///             RelativeDuration::minutes(5),
+///             0,
+///             vec![vec![Some(1.)], 10]
+///         ))
+///     }
+/// }
+/// ```
 ///
 /// Some real implementations can be found in [rove/met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors)
 #[async_trait]
