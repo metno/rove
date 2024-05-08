@@ -204,7 +204,7 @@ impl DataCache {
 ///             timestamp,
 ///             RelativeDuration::minutes(5),
 ///             0,
-///             vec![vec![Some(1.)], 10]
+///             vec![vec![Some(1.)]; 10]
 ///         ))
 ///     }
 /// }
