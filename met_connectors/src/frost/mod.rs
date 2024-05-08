@@ -11,6 +11,7 @@ use thiserror::Error;
 mod duration;
 mod series;
 mod spatial;
+mod util;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
