@@ -1,41 +1,7 @@
-use crate::frost::{Error, FrostLatLonElev, FrostLocation, FrostObs};
+use crate::frost::{util, Error, FrostLatLonElev, FrostObs};
 use chrono::prelude::*;
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, DataCache, Polygon, Timestamp};
-
-use super::series::extract_duration;
-
-pub(crate) fn extract_location(
-    header: &mut serde_json::Value,
-    time: DateTime<Utc>,
-) -> Result<FrostLatLonElev, Error> {
-    let location = header
-        .get_mut("extra")
-        .ok_or(Error::FindLocation(
-            "couldn't find extra in header".to_string(),
-        ))?
-        .get_mut("station")
-        .ok_or(Error::FindLocation(
-            "couldn't find station field in extra".to_string(),
-        ))?
-        .get_mut("location")
-        .ok_or(Error::FindLocation(
-            "couldn't find location field in station".to_string(),
-        ))?
-        .take();
-
-    let loc = serde_json::from_value::<Vec<FrostLocation>>(location)?;
-
-    let lat_lon_elev = loc
-        .into_iter()
-        .find(|l| time > l.from && time < l.to)
-        .ok_or(Error::FindLocation(
-            "couldn't find relevant location for this observation".to_string(),
-        ))?
-        .value;
-
-    Ok(lat_lon_elev)
-}
 
 fn extract_data(
     mut resp: serde_json::Value,
@@ -73,12 +39,13 @@ fn extract_data(
             let header = ts.get_mut("header").ok_or(Error::FindObs(
                 "couldn't find header field on tseries".to_string(),
             ))?;
-            let location = extract_location(header, time)?;
+            let location = util::extract_location(header, time)?;
 
             // default to one hour if `timeseries` section is missing in the metadata
             // TODO: we might not need this inside here, since we want all stations
             // to have the same time resolution
-            let time_resolution = extract_duration(header).unwrap_or(RelativeDuration::hours(1));
+            let time_resolution =
+                util::extract_duration(header).unwrap_or(RelativeDuration::hours(1));
 
             Ok((obs, location, time_resolution))
         })

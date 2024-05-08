@@ -1,34 +1,7 @@
-use crate::frost::{duration, Error, FrostLatLonElev, FrostObs};
+use crate::frost::{util, Error, FrostLatLonElev, FrostObs};
 use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, DataCache, Timerange, Timestamp};
-
-use super::spatial::extract_location;
-
-pub(crate) fn extract_duration(header: &mut serde_json::Value) -> Result<RelativeDuration, Error> {
-    let time_resolution = header
-        .get_mut("extra")
-        .ok_or(Error::FindMetadata(
-            "couldn't find field extra on header".to_string(),
-        ))?
-        .get_mut("timeseries")
-        .ok_or(Error::FindMetadata(
-            "couldn't find field timeseries on extra".to_string(),
-        ))?
-        .get_mut("timeresolution")
-        .ok_or(Error::FindMetadata(
-            "couldn't find field timeresolution on timeseries".to_string(),
-        ))?
-        .as_str()
-        .ok_or(Error::FindMetadata(
-            "field timeresolution was not a string".to_string(),
-        ))?;
-
-    duration::parse_duration(time_resolution).map_err(|e| Error::ParseDuration {
-        source: e,
-        input: time_resolution.to_string(),
-    })
-}
 
 fn extract_header(mut metadata_resp: serde_json::Value) -> Result<serde_json::Value, Error> {
     let header = metadata_resp
@@ -77,7 +50,7 @@ fn extract_data(
     )?;
 
     // TODO: Should there be a location for each observation?
-    let location = extract_location(
+    let location = util::extract_location(
         ts_portion.get_mut("header").ok_or(Error::FindObs(
             "couldn't find header field on tseries".to_string(),
         ))?,
@@ -206,7 +179,7 @@ pub async fn get_series_data_inner(
 
     let mut metadata_header =
         extract_header(metadata_resp).map_err(|e| data_switch::Error::Other(Box::new(e)))?;
-    let period = extract_duration(&mut metadata_header)
+    let period = util::extract_duration(&mut metadata_header)
         .map_err(|e| data_switch::Error::Other(Box::new(e)))?;
 
     let resp: serde_json::Value = client
