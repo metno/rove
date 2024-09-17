@@ -82,6 +82,16 @@ pub struct GeoPoint {
 /// represented by its vertices as a sequence of lat-lon points
 pub type Polygon = [GeoPoint];
 
+/// Specifier of which data to fetch from a source by location
+pub enum SpaceSpec<'a> {
+    /// One single timeseries, specified with a data_id
+    One(&'a str),
+    /// A Polygon in lat-lon space defining the area from which to fetch data
+    Polygon(&'a Polygon),
+    /// The whole data set
+    All,
+}
+
 /// Container for metereological data
 ///
 /// a [`new`](DataCache::new) method is provided to
@@ -109,8 +119,11 @@ pub struct DataCache {
     /// be needed, and requests a SeriesCache from the DataSwitch with that
     /// number of leading points
     pub num_leading_points: u8,
+    /// The number of extra points in the series after the data to be QCed
+    pub num_trailing_points: u8,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl DataCache {
     /// Create a new DataCache without manually constructing the R*-tree
     pub fn new(
@@ -120,6 +133,7 @@ impl DataCache {
         start_time: Timestamp,
         period: RelativeDuration,
         num_leading_points: u8,
+        num_trailing_points: u8,
         data: Vec<Vec<Option<f32>>>,
     ) -> Self {
         // TODO: ensure vecs have same size
@@ -129,6 +143,7 @@ impl DataCache {
             start_time,
             period,
             num_leading_points,
+            num_trailing_points,
         }
     }
 }
@@ -137,11 +152,7 @@ impl DataCache {
 ///
 /// Uses [mod@async_trait]. It is recommended to tag your implementation with
 /// the [`macro@async_trait`] macro to avoid having to deal with pinning,
-/// futures, and lifetimes manually. This trait has two required methods:
-///
-/// - fetch_series_data: fetch sequential data, i.e. from a time series
-/// - fetch_spatial_data: fetch data that is distributed spatially, at a single
-/// timestamp
+/// futures, and lifetimes manually.
 ///
 /// Here is an example implementation that just returns dummy data:
 ///
@@ -157,19 +168,25 @@ impl DataCache {
 ///
 /// #[async_trait]
 /// impl DataConnector for TestDataSource {
-///     async fn fetch_series_data(
+///     async fn fetch_data(
 ///         &self,
-///         // This is the part of spatial_id after the colon. You can
-///         // define its format any way you like, and use it to
-///         // determine what to fetch from the data source.
-///         _data_id: &str,
-///         // The timerange in the series that data is needed from.
-///         _timespec: Timerange,
+///         // Specifier to restrict the data fetched spatially. Can be used
+///         // to specify a single timeseries, all timeseries within a polygon,
+///         // or the entire dataset.
+///         _space_spec: SpaceSpec<'_>,
+///         // Specifier to restrict the data fetched by time.
+///         time_spec: Timerange,
 ///         // Some timeseries QC tests require extra data from before
 ///         // the start of the timerange to function. ROVE determines
 ///         // how many extra data points are needed, and passes that in
 ///         // here.
 ///         num_leading_points: u8,
+///         // Similar to num_leading_points, but after the end of the
+///         // timerange.
+///         num_trailing_points: u8,
+///         // Any extra string info your DataSource accepts, to further
+///         // specify what data to fetch.
+///         _extra_spec: Option<&str>,
 ///     ) -> Result<DataCache, data_switch::Error> {
 ///         // Here you can do whatever is need to fetch real data, whether
 ///         // that's a REST request, SQL call, NFS read etc.
@@ -178,33 +195,11 @@ impl DataCache {
 ///             vec![1.],
 ///             vec![1.],
 ///             vec![1.],
-///             Timestamp(0),
+///             Timestamp(time_spec.start),
 ///             RelativeDuration::minutes(5),
 ///             num_leading_points,
-///             vec![vec![Some(1.)]]
-///         ))
-///     }
-///
-///     async fn fetch_spatial_data(
-///         &self,
-///         _data_id: &str,
-///         // This `Vec` of `GeoPoint`s represents a polygon defining the
-///         // area in which data should be fetched. It can be left empty,
-///         // in which case the whole data set should be fetched
-///         _polygon: &Polygon,
-///         // Unix timestamp representing the time of the data to be fetched
-///         timestamp: Timestamp,
-///     ) -> Result<DataCache, data_switch::Error> {
-///         // As above, calls to the data source to get real data go here
-///
-///         Ok(DataCache::new(
-///             vec![1.],
-///             vec![1.],
-///             vec![1.],
-///             timestamp,
-///             RelativeDuration::minutes(5),
-///             0,
-///             vec![vec![Some(1.)]; 10]
+///             num_trailing_points,
+///             vec![vec![Some(1.)]],
 ///         ))
 ///     }
 /// }
@@ -213,23 +208,19 @@ impl DataCache {
 /// Some real implementations can be found in [rove/met_connectors](https://github.com/metno/rove/tree/trunk/met_connectors)
 #[async_trait]
 pub trait DataConnector: Sync + std::fmt::Debug {
-    /// fetch sequential data, i.e. from a time series
-    async fn fetch_series_data(
+    /// fetch specified data from the data source
+    async fn fetch_data(
         &self,
-        data_id: &str,
-        timespec: Timerange,
+        space_spec: SpaceSpec<'_>,
+        // TODO: should this include a time resolution?
+        time_spec: Timerange,
         num_leading_points: u8,
-    ) -> Result<DataCache, Error>;
-
-    /// fetch data that is distributed spatially, at a single timestamp
-    async fn fetch_spatial_data(
-        &self,
-        data_id: &str,
-        polygon: &Polygon,
-        timestamp: Timestamp,
+        num_trailing_points: u8,
+        extra_spec: Option<&str>,
     ) -> Result<DataCache, Error>;
 }
 
+// TODO: this needs updating when we update the proto
 /// Data routing utility for ROVE
 ///
 /// This contains a map of &str to [`DataConnector`]s and is used by ROVE to
@@ -267,45 +258,29 @@ impl<'ds> DataSwitch<'ds> {
         Self { sources }
     }
 
-    pub(crate) async fn fetch_series_data(
-        &self,
-        series_id: &str,
-        timerange: Timerange,
-        num_leading_points: u8,
-    ) -> Result<DataCache, Error> {
-        // TODO: check these names still make sense
-        let (data_source_id, data_id) = series_id
-            .split_once(':')
-            .ok_or_else(|| Error::InvalidSeriesId(series_id.to_string()))?;
-
-        let data_source = self
-            .sources
-            .get(data_source_id)
-            .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
-
-        data_source
-            .fetch_series_data(data_id, timerange, num_leading_points)
-            .await
-    }
-
     // TODO: handle backing sources
-    pub(crate) async fn fetch_spatial_data(
+    pub(crate) async fn fetch_data(
         &self,
-        polygon: &Polygon,
-        spatial_id: &str,
-        timestamp: Timestamp,
+        data_source_id: &str,
+        space_spec: SpaceSpec<'_>,
+        time_spec: Timerange,
+        num_leading_points: u8,
+        num_trailing_points: u8,
+        extra_spec: Option<&str>,
     ) -> Result<DataCache, Error> {
-        let (data_source_id, data_id) = spatial_id
-            .split_once(':')
-            .ok_or_else(|| Error::InvalidSeriesId(spatial_id.to_string()))?;
-
         let data_source = self
             .sources
             .get(data_source_id)
             .ok_or_else(|| Error::InvalidDataSource(data_source_id.to_string()))?;
 
         data_source
-            .fetch_spatial_data(data_id, polygon, timestamp)
+            .fetch_data(
+                space_spec,
+                time_spec,
+                num_leading_points,
+                num_trailing_points,
+                extra_spec,
+            )
             .await
     }
 }

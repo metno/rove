@@ -1,6 +1,6 @@
 use crate::{
     dag::{Dag, NodeId},
-    data_switch::{self, DataCache, DataSwitch, Polygon, Timerange, Timestamp},
+    data_switch::{self, DataCache, DataSwitch, Polygon, SpaceSpec, Timerange, Timestamp},
     harness,
     // TODO: rethink this dependency?
     pb::{ValidateSeriesResponse, ValidateSpatialResponse},
@@ -247,9 +247,24 @@ impl<'a> Scheduler<'a> {
             return Err(Error::InvalidArg("must specify at least 1 test to be run"));
         }
 
+        let (data_source_id, data_id) = series_id
+            .as_ref()
+            .split_once(':')
+            // TODO: remove this unwrap by splitting these in the proto
+            .unwrap();
+
         let data = match self
             .data_switch
-            .fetch_series_data(series_id.as_ref(), timerange, 2)
+            // TODO: num_leading and num_trailing here should be determined from the test list
+            .fetch_data(
+                data_source_id,
+                SpaceSpec::One(data_id),
+                timerange,
+                2,
+                2,
+                // TODO: this should probably be able to be Some, needs fixing in proto
+                None,
+            )
             .await
         {
             Ok(data) => data,
@@ -300,9 +315,26 @@ impl<'a> Scheduler<'a> {
             return Err(Error::InvalidArg("must specify at least 1 test to be run"));
         }
 
+        let (data_source_id, extra_spec) = spatial_id
+            .as_ref()
+            .split_once(':')
+            // TODO: remove this unwrap by splitting these in the proto
+            .unwrap();
+
         let data = match self
             .data_switch
-            .fetch_spatial_data(polygon, spatial_id.as_ref(), time)
+            .fetch_data(
+                data_source_id,
+                SpaceSpec::Polygon(polygon),
+                Timerange {
+                    start: time,
+                    end: time,
+                },
+                0,
+                0,
+                // TODO: This should probably be able to be None, needs fixing in proto
+                Some(extra_spec),
+            )
             .await
         {
             Ok(data) => data,
