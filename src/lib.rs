@@ -129,7 +129,7 @@ pub(crate) mod pb {
 #[doc(hidden)]
 pub mod dev_utils {
     use crate::{
-        data_switch::{self, DataCache, DataConnector, Polygon, Timerange, Timestamp},
+        data_switch::{self, DataCache, DataConnector, SpaceSpec, Timerange, Timestamp},
         Dag,
     };
     use async_trait::async_trait;
@@ -145,54 +145,57 @@ pub mod dev_utils {
 
     #[async_trait]
     impl DataConnector for TestDataSource {
-        async fn fetch_series_data(
+        async fn fetch_data(
             &self,
-            data_id: &str,
-            _timespec: Timerange,
+            space_spec: SpaceSpec<'_>,
+            _time_spec: Timerange,
             num_leading_points: u8,
+            num_trailing_points: u8,
+            _extra_spec: Option<&str>,
         ) -> Result<DataCache, data_switch::Error> {
-            match data_id {
-                "single" => black_box(Ok(DataCache::new(
-                    vec![0.; 1],
-                    vec![0.; 1],
-                    vec![0.; 1],
+            match space_spec {
+                SpaceSpec::One(data_id) => match data_id {
+                    // TODO: should we maybe be using time_spec for these instead of data_id?
+                    // maybe something to come back to when we finalize the format of time_spec
+                    "single" => black_box(Ok(DataCache::new(
+                        vec![0.; 1],
+                        vec![0.; 1],
+                        vec![0.; 1],
+                        Timestamp(0),
+                        RelativeDuration::minutes(5),
+                        num_leading_points,
+                        num_trailing_points,
+                        vec![vec![Some(1.); self.data_len_single]; 1],
+                    ))),
+                    "series" => black_box(Ok(DataCache::new(
+                        vec![0.; 1],
+                        vec![0.; 1],
+                        vec![0.; 1],
+                        Timestamp(0),
+                        RelativeDuration::minutes(5),
+                        num_leading_points,
+                        num_trailing_points,
+                        vec![vec![Some(1.); self.data_len_spatial]; 1],
+                    ))),
+                    _ => panic!("unknown data_id"),
+                },
+                SpaceSpec::All => black_box(Ok(DataCache::new(
+                    (0..self.data_len_spatial)
+                        .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
+                        .collect(),
+                    (0..self.data_len_spatial)
+                        .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
+                        .collect(),
+                    vec![1.; self.data_len_spatial],
                     Timestamp(0),
                     RelativeDuration::minutes(5),
-                    num_leading_points,
-                    vec![vec![Some(1.); self.data_len_single]; 1],
+                    // TODO: update this to use num_leading/trailing?
+                    0,
+                    0,
+                    vec![vec![Some(1.); 1]; self.data_len_spatial],
                 ))),
-                "series" => black_box(Ok(DataCache::new(
-                    vec![0.; 1],
-                    vec![0.; 1],
-                    vec![0.; 1],
-                    Timestamp(0),
-                    RelativeDuration::minutes(5),
-                    num_leading_points,
-                    vec![vec![Some(1.); self.data_len_spatial]; 1],
-                ))),
-                _ => panic!("unknown data_id"),
+                SpaceSpec::Polygon(_) => unimplemented!(),
             }
-        }
-
-        async fn fetch_spatial_data(
-            &self,
-            _data_id: &str,
-            _polygon: &Polygon,
-            _timestamp: Timestamp,
-        ) -> Result<DataCache, data_switch::Error> {
-            black_box(Ok(DataCache::new(
-                (0..self.data_len_spatial)
-                    .map(|i| ((i as f32).powi(2) * 0.001) % 3.)
-                    .collect(),
-                (0..self.data_len_spatial)
-                    .map(|i| ((i as f32 + 1.).powi(2) * 0.001) % 3.)
-                    .collect(),
-                vec![1.; self.data_len_spatial],
-                Timestamp(0),
-                RelativeDuration::minutes(5),
-                0,
-                vec![vec![Some(1.); 1]; self.data_len_spatial],
-            )))
         }
     }
 
