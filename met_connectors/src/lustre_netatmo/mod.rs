@@ -3,7 +3,7 @@ use chrono::prelude::*;
 use chronoutil::RelativeDuration;
 use rove::{
     data_switch,
-    data_switch::{DataCache, DataConnector, Polygon, Timerange, Timestamp},
+    data_switch::{DataCache, DataConnector, SpaceSpec, TimeSpec, Timestamp},
 };
 use serde::Deserialize;
 use std::{fs::File, io};
@@ -65,30 +65,41 @@ fn read_netatmo(timestamp: Timestamp) -> Result<DataCache, data_switch::Error> {
     }
 
     Ok(DataCache::new(
-        lats, lons, elevs, timestamp, period, 0, values,
+        lats, lons, elevs, timestamp, period, 0, 0, values,
     ))
 }
 
 #[async_trait]
 impl DataConnector for LustreNetatmo {
-    async fn fetch_series_data(
+    async fn fetch_data(
         &self,
-        _data_id: &str,
-        _timespec: Timerange,
-        _num_leading_points: u8,
+        space_spec: SpaceSpec<'_>,
+        time_spec: TimeSpec,
+        num_leading_points: u8,
+        num_trailing_points: u8,
+        _extra_spec: Option<&str>,
     ) -> Result<DataCache, data_switch::Error> {
-        Err(data_switch::Error::UnimplementedSeries(
-            "netatmo files are only in timeslice format".to_string(),
-        ))
-    }
+        if num_leading_points != 0
+            || num_trailing_points != 0
+            || time_spec.timerange.start != time_spec.timerange.end
+        {
+            return Err(data_switch::Error::UnimplementedSeries(
+                "netatmo files are only in timeslice format".to_string(),
+            ));
+        }
 
-    async fn fetch_spatial_data(
-        &self,
-        _data_id: &str,
-        _polygon: &Polygon,
-        time: Timestamp,
-    ) -> Result<DataCache, data_switch::Error> {
-        tokio::task::spawn_blocking(move || read_netatmo(time)).await?
+        match space_spec {
+            SpaceSpec::All => {
+                tokio::task::spawn_blocking(move || read_netatmo(time_spec.timerange.start)).await?
+            }
+            SpaceSpec::One(_) => Err(data_switch::Error::UnimplementedSeries(
+                "netatmo files are only in timeslice format".to_string(),
+            )),
+            // TODO: should we implement this?
+            SpaceSpec::Polygon(_) => Err(data_switch::Error::UnimplementedSpatial(
+                "this connector cannot filter netatmo files by a polygon".to_string(),
+            )),
+        }
     }
 }
 
