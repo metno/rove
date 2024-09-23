@@ -1,10 +1,13 @@
 use crate::{
     dag::{Dag, NodeId},
-    data_switch::{self, DataCache, DataSwitch, Polygon, SpaceSpec, Timerange, Timestamp},
+    data_switch::{
+        self, DataCache, DataSwitch, Polygon, SpaceSpec, TimeSpec, Timerange, Timestamp,
+    },
     harness,
     // TODO: rethink this dependency?
     pb::{ValidateSeriesResponse, ValidateSpatialResponse},
 };
+use chronoutil::RelativeDuration;
 use futures::stream::FuturesUnordered;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -241,7 +244,7 @@ impl<'a> Scheduler<'a> {
         &self,
         series_id: impl AsRef<str>,
         tests: &[impl AsRef<str>],
-        timerange: Timerange,
+        time_spec: TimeSpec,
     ) -> Result<Receiver<Result<ValidateSeriesResponse, Error>>, Error> {
         if tests.is_empty() {
             return Err(Error::InvalidArg("must specify at least 1 test to be run"));
@@ -259,7 +262,7 @@ impl<'a> Scheduler<'a> {
             .fetch_data(
                 data_source_id,
                 SpaceSpec::One(data_id),
-                timerange,
+                time_spec,
                 2,
                 2,
                 // TODO: this should probably be able to be Some, needs fixing in proto
@@ -326,9 +329,13 @@ impl<'a> Scheduler<'a> {
             .fetch_data(
                 data_source_id,
                 SpaceSpec::Polygon(polygon),
-                Timerange {
-                    start: time,
-                    end: time,
+                TimeSpec {
+                    timerange: Timerange {
+                        start: time,
+                        end: time,
+                    },
+                    // TODO: should be a real value
+                    time_resolution: RelativeDuration::minutes(5),
                 },
                 0,
                 0,

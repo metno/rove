@@ -29,18 +29,23 @@ pub enum Error {
     #[error("data source `{0}` not registered")]
     InvalidDataSource(String),
     /// The DataConnector or its data source could not parse the data_id
-    #[error("data id `{data_id}` could not be parsed by data source {data_source}: {source}")]
-    InvalidDataId {
+    #[error(
+        "extra_spec `{extra_spec:?}` could not be parsed by data source {data_source}: {source}"
+    )]
+    InvalidExtraSpec {
         /// Name of the relevant data source
         data_source: &'static str,
         /// The data_id that could not be parsed
-        data_id: String,
+        extra_spec: Option<String>,
         /// The error in the DataConnector
         source: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
     /// Generic IO error
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    // TODO: should we change these now we don't differentiate between series and spatial requests?
+    // They are arguably still useful since fetching series vs spatial data is still a pattern some
+    // sources may or may not support.
     /// The data source was asked for series data but does not offer it
     #[error("this data source does not offer series data: {0}")]
     UnimplementedSeries(String),
@@ -66,6 +71,14 @@ pub struct Timerange {
     pub start: Timestamp,
     /// End of the timerange
     pub end: Timestamp,
+}
+
+/// Specifier of which data to fetch from a source by time, and time resolution
+pub struct TimeSpec {
+    /// The range in time of data to fetch
+    pub timerange: Timerange,
+    /// The time resolution of data that should be fetched
+    pub time_resolution: chronoutil::RelativeDuration,
 }
 
 /// Specifier of geographic position, by latitude and longitude
@@ -213,7 +226,7 @@ pub trait DataConnector: Sync + std::fmt::Debug {
         &self,
         space_spec: SpaceSpec<'_>,
         // TODO: should this include a time resolution?
-        time_spec: Timerange,
+        time_spec: TimeSpec,
         num_leading_points: u8,
         num_trailing_points: u8,
         extra_spec: Option<&str>,
@@ -263,7 +276,7 @@ impl<'ds> DataSwitch<'ds> {
         &self,
         data_source_id: &str,
         space_spec: SpaceSpec<'_>,
-        time_spec: Timerange,
+        time_spec: TimeSpec,
         num_leading_points: u8,
         num_trailing_points: u8,
         extra_spec: Option<&str>,
