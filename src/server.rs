@@ -1,6 +1,6 @@
 use crate::{
     dag::Dag,
-    data_switch::{DataSwitch, GeoPoint, Polygon, Timerange, Timestamp},
+    data_switch::{DataSwitch, GeoPoint, Polygon, TimeSpec, Timerange, Timestamp},
     pb::{
         rove_server::{Rove, RoveServer},
         ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
@@ -8,6 +8,7 @@ use crate::{
     },
     scheduler::{self, Scheduler},
 };
+use chronoutil::RelativeDuration;
 use futures::Stream;
 use std::{net::SocketAddr, pin::Pin};
 use tokio::sync::mpsc::channel;
@@ -61,19 +62,27 @@ impl Rove for Scheduler<'static> {
             .validate_series_direct(
                 req.series_id,
                 &req.tests,
-                Timerange {
-                    start: Timestamp(
-                        req.start_time
-                            .as_ref()
-                            .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
-                            .seconds,
-                    ),
-                    end: Timestamp(
-                        req.end_time
-                            .as_ref()
-                            .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
-                            .seconds,
-                    ),
+                TimeSpec {
+                    timerange: Timerange {
+                        start: Timestamp(
+                            req.start_time
+                                .as_ref()
+                                .ok_or(Status::invalid_argument(
+                                    "invalid timestamp for start_time",
+                                ))?
+                                .seconds,
+                        ),
+                        end: Timestamp(
+                            req.end_time
+                                .as_ref()
+                                .ok_or(Status::invalid_argument(
+                                    "invalid timestamp for start_time",
+                                ))?
+                                .seconds,
+                        ),
+                    },
+                    // TODO: should be a real value
+                    time_resolution: RelativeDuration::minutes(5),
                 },
             )
             .await

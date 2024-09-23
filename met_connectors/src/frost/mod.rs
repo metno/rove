@@ -2,22 +2,22 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use rove::{
     data_switch,
-    data_switch::{DataCache, DataConnector, Polygon, Timerange, Timestamp},
+    data_switch::{DataCache, DataConnector, SpaceSpec, TimeSpec},
 };
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
-// TODO: move duration into series?
 mod duration;
-mod series;
-mod spatial;
+mod fetch;
 mod util;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
     #[error("{0}")]
-    InvalidDataId(&'static str),
+    InvalidElementId(&'static str),
+    #[error("invalid space_spec: {0}")]
+    InvalidSpaceSpec(&'static str),
     #[error("fetching data from frost failed")]
     Request(#[from] reqwest::Error),
     #[error("failed to find obs in json body: {0}")]
@@ -100,21 +100,21 @@ where
 
 #[async_trait]
 impl DataConnector for Frost {
-    async fn fetch_series_data(
+    async fn fetch_data(
         &self,
-        data_id: &str,
-        timerange: Timerange,
+        space_spec: SpaceSpec<'_>,
+        time_spec: TimeSpec,
         num_leading_points: u8,
+        num_trailing_points: u8,
+        extra_spec: Option<&str>,
     ) -> Result<DataCache, data_switch::Error> {
-        series::get_series_data_inner(data_id, timerange, num_leading_points).await
-    }
-
-    async fn fetch_spatial_data(
-        &self,
-        data_id: &str,
-        polygon: &Polygon,
-        timestamp: Timestamp,
-    ) -> Result<DataCache, data_switch::Error> {
-        spatial::get_spatial_data_inner(polygon, data_id, timestamp).await
+        fetch::fetch_data_inner(
+            space_spec,
+            time_spec,
+            num_leading_points,
+            num_trailing_points,
+            extra_spec,
+        )
+        .await
     }
 }

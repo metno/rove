@@ -129,7 +129,7 @@ pub(crate) mod pb {
 #[doc(hidden)]
 pub mod dev_utils {
     use crate::{
-        data_switch::{self, DataCache, DataConnector, SpaceSpec, Timerange, Timestamp},
+        data_switch::{self, DataCache, DataConnector, SpaceSpec, TimeSpec, Timestamp},
         Dag,
     };
     use async_trait::async_trait;
@@ -148,7 +148,7 @@ pub mod dev_utils {
         async fn fetch_data(
             &self,
             space_spec: SpaceSpec<'_>,
-            _time_spec: Timerange,
+            _time_spec: TimeSpec,
             num_leading_points: u8,
             num_trailing_points: u8,
             _extra_spec: Option<&str>,
