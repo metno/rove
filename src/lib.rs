@@ -36,11 +36,12 @@
 //! ```no_run
 //! use rove::{
 //!     Scheduler,
-//!     data_switch::{DataSwitch, DataConnector, Timestamp, Timerange},
+//!     data_switch::{DataSwitch, DataConnector, Timestamp, Timerange, TimeSpec, SpaceSpec},
 //!     dev_utils::{TestDataSource, construct_hardcoded_dag},
 //! };
 //! use std::collections::HashMap;
 //! use chrono::{Utc, TimeZone};
+//! use chronoutil::RelativeDuration;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,21 +55,27 @@
 //!
 //!     let rove_scheduler = Scheduler::new(construct_hardcoded_dag(), data_switch);
 //!
-//!     let mut rx = rove_scheduler.validate_series_direct(
-//!         "test:single",
-//!         &["dip_check", "step_check"],
-//!         Timerange{
-//!             start: Timestamp(
-//!                 Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0)
-//!                     .unwrap()
-//!                     .timestamp(),
-//!             ),
-//!             end: Timestamp(
-//!                 Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0)
-//!                     .unwrap()
-//!                     .timestamp(),
-//!             ),
+//!     let mut rx = rove_scheduler.validate_direct(
+//!         "my_data_source",
+//!         &vec!["my_backing_source"],
+//!         &TimeSpec{
+//!             timerange: Timerange{
+//!                 start: Timestamp(
+//!                     Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0)
+//!                         .unwrap()
+//!                         .timestamp(),
+//!                 ),
+//!                 end: Timestamp(
+//!                     Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0)
+//!                         .unwrap()
+//!                         .timestamp(),
+//!                 ),
+//!             },
+//!             time_resolution: RelativeDuration::minutes(5),
 //!         },
+//!         &SpaceSpec::One(String::from("station_id")),
+//!         &["dip_check", "step_check"],
+//!         None,
 //!     ).await?;
 //!
 //!     while let Some(response) = rx.recv().await {
