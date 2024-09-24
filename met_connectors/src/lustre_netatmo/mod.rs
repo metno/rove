@@ -60,7 +60,11 @@ fn read_netatmo(timestamp: Timestamp) -> Result<DataCache, data_switch::Error> {
             lats.push(record.lat);
             lons.push(record.lon);
             elevs.push(record.elev);
-            values.push(vec![Some(record.value)]);
+            values.push((
+                // would be nice if we could come up with better identifiers for this
+                format!("({},{})", record.lat, record.lon),
+                vec![Some(record.value)],
+            ));
         }
     }
 
@@ -73,8 +77,8 @@ fn read_netatmo(timestamp: Timestamp) -> Result<DataCache, data_switch::Error> {
 impl DataConnector for LustreNetatmo {
     async fn fetch_data(
         &self,
-        space_spec: SpaceSpec<'_>,
-        time_spec: TimeSpec,
+        space_spec: &SpaceSpec,
+        time_spec: &TimeSpec,
         num_leading_points: u8,
         num_trailing_points: u8,
         _extra_spec: Option<&str>,
@@ -90,7 +94,8 @@ impl DataConnector for LustreNetatmo {
 
         match space_spec {
             SpaceSpec::All => {
-                tokio::task::spawn_blocking(move || read_netatmo(time_spec.timerange.start)).await?
+                let start_time = time_spec.timerange.start;
+                tokio::task::spawn_blocking(move || read_netatmo(start_time)).await?
             }
             SpaceSpec::One(_) => Err(data_switch::Error::UnimplementedSeries(
                 "netatmo files are only in timeslice format".to_string(),

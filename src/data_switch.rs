@@ -93,14 +93,14 @@ pub struct GeoPoint {
 /// A geospatial polygon
 ///
 /// represented by its vertices as a sequence of lat-lon points
-pub type Polygon = [GeoPoint];
+pub type Polygon = Vec<GeoPoint>;
 
 /// Specifier of which data to fetch from a source by location
-pub enum SpaceSpec<'a> {
+pub enum SpaceSpec {
     /// One single timeseries, specified with a data_id
-    One(&'a str),
+    One(String),
     /// A Polygon in lat-lon space defining the area from which to fetch data
-    Polygon(&'a Polygon),
+    Polygon(Polygon),
     /// The whole data set
     All,
 }
@@ -113,10 +113,11 @@ pub enum SpaceSpec<'a> {
 pub struct DataCache {
     /// Vector of timeseries.
     ///
-    /// Each inner vector represents a timeseries, with its data points in chronological order.
+    /// Each inner vector represents a timeseries, tagged with a string
+    /// identifier, with its data points in chronological order.
     /// All these timeseries are aligned on start_time and period.
     /// `None`s represent gaps in the series.
-    pub data: Vec<Vec<Option<f32>>>,
+    pub data: Vec<(String, Vec<Option<f32>>)>,
     /// Time of the first observation in data
     pub start_time: Timestamp,
     /// Period of the timeseries, i.e. the time gap between successive elements
@@ -147,7 +148,7 @@ impl DataCache {
         period: RelativeDuration,
         num_leading_points: u8,
         num_trailing_points: u8,
-        data: Vec<Vec<Option<f32>>>,
+        data: Vec<(String, Vec<Option<f32>>)>,
     ) -> Self {
         // TODO: ensure vecs have same size
         Self {
@@ -224,9 +225,8 @@ pub trait DataConnector: Sync + std::fmt::Debug {
     /// fetch specified data from the data source
     async fn fetch_data(
         &self,
-        space_spec: SpaceSpec<'_>,
-        // TODO: should this include a time resolution?
-        time_spec: TimeSpec,
+        space_spec: &SpaceSpec,
+        time_spec: &TimeSpec,
         num_leading_points: u8,
         num_trailing_points: u8,
         extra_spec: Option<&str>,
@@ -275,8 +275,8 @@ impl<'ds> DataSwitch<'ds> {
     pub(crate) async fn fetch_data(
         &self,
         data_source_id: &str,
-        space_spec: SpaceSpec<'_>,
-        time_spec: TimeSpec,
+        space_spec: &SpaceSpec,
+        time_spec: &TimeSpec,
         num_leading_points: u8,
         num_trailing_points: u8,
         extra_spec: Option<&str>,

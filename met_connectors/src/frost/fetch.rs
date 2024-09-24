@@ -3,11 +3,12 @@ use chrono::{prelude::*, Duration};
 use chronoutil::RelativeDuration;
 use rove::data_switch::{self, DataCache, Polygon, SpaceSpec, TimeSpec, Timestamp};
 
+#[allow(clippy::type_complexity)]
 fn extract_data(
     mut resp: serde_json::Value,
     time: DateTime<Utc>,
     request_time_resolution: RelativeDuration,
-) -> Result<Vec<(Vec<FrostObs>, FrostLatLonElev)>, Error> {
+) -> Result<Vec<((String, Vec<FrostObs>), FrostLatLonElev)>, Error> {
     let ts_portion = resp
         .get_mut("data")
         .ok_or(Error::FindObs(
@@ -26,6 +27,8 @@ fn extract_data(
             let header = ts.get_mut("header").ok_or(Error::FindObs(
                 "couldn't find header field on tseries".to_string(),
             ))?;
+
+            let station_id = util::extract_station_id(header)?;
 
             // TODO: Should there be a location for each observation?
             let location = util::extract_location(header, time)?;
@@ -46,11 +49,11 @@ fn extract_data(
                     .take(),
             )?;
 
-            Ok(Some((obs, location)))
+            Ok(Some(((station_id, obs), location)))
         })
         // Is there some smart way to avoid a double collect without making the error handling
         // messy?
-        .collect::<Result<Vec<Option<(Vec<FrostObs>, FrostLatLonElev)>>, Error>>()?
+        .collect::<Result<Vec<Option<((String, Vec<FrostObs>), FrostLatLonElev)>>, Error>>()?
         .into_iter()
         .flatten()
         .collect();
@@ -87,7 +90,7 @@ fn json_to_data_cache(
 
     let processed_ts_vec = ts_vec
         .into_iter()
-        .map(|(obses, location)| {
+        .map(|((station_id, obses), location)| {
             // TODO: preallocate?
             // let ts_length = (end_time - first_obs_time) / period;
             let mut data = Vec::new();
@@ -149,9 +152,9 @@ fn json_to_data_cache(
                 curr_obs_time = curr_obs_time + period;
             }
 
-            Ok((data, location))
+            Ok(((station_id, data), location))
         })
-        .collect::<Result<Vec<(Vec<Option<f32>>, FrostLatLonElev)>, Error>>()?;
+        .collect::<Result<Vec<((String, Vec<Option<f32>>), FrostLatLonElev)>, Error>>()?;
 
     Ok(DataCache::new(
         processed_ts_vec.iter().map(|ts| ts.1.latitude).collect(),
@@ -166,8 +169,8 @@ fn json_to_data_cache(
 }
 
 pub async fn fetch_data_inner(
-    space_spec: SpaceSpec<'_>,
-    time_spec: TimeSpec,
+    space_spec: &SpaceSpec,
+    time_spec: &TimeSpec,
     num_leading_points: u8,
     num_trailing_points: u8,
     extra_spec: Option<&str>,
@@ -362,7 +365,7 @@ mod tests {
             Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0).unwrap(),
         );
         assert_eq!(
-            series_cache.data[0],
+            series_cache.data[0].1,
             vec![Some(27.3999996), Some(25.7999992), Some(26.)]
         );
     }

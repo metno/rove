@@ -102,8 +102,8 @@ where
 impl DataConnector for Frost {
     async fn fetch_data(
         &self,
-        space_spec: SpaceSpec<'_>,
-        time_spec: TimeSpec,
+        space_spec: &SpaceSpec,
+        time_spec: &TimeSpec,
         num_leading_points: u8,
         num_trailing_points: u8,
         extra_spec: Option<&str>,

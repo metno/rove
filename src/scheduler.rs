@@ -1,13 +1,10 @@
 use crate::{
     dag::{Dag, NodeId},
-    data_switch::{
-        self, DataCache, DataSwitch, Polygon, SpaceSpec, TimeSpec, Timerange, Timestamp,
-    },
+    data_switch::{self, DataCache, DataSwitch, SpaceSpec, TimeSpec},
     harness,
     // TODO: rethink this dependency?
-    pb::{ValidateSeriesResponse, ValidateSpatialResponse},
+    pb::ValidateResponse,
 };
-use chronoutil::RelativeDuration;
 use futures::stream::FuturesUnordered;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -93,10 +90,10 @@ impl<'a> Scheduler<'a> {
         Ok(subdag)
     }
 
-    fn schedule_tests_series(
+    fn schedule_tests(
         subdag: Dag<&'static str>,
         data: DataCache,
-    ) -> Receiver<Result<ValidateSeriesResponse, Error>> {
+    ) -> Receiver<Result<ValidateResponse, Error>> {
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = channel(subdag.nodes.len());
@@ -105,7 +102,7 @@ impl<'a> Scheduler<'a> {
             let mut test_futures = FuturesUnordered::new();
 
             for leaf_index in subdag.leaves.clone().into_iter() {
-                test_futures.push(harness::run_test_series(
+                test_futures.push(harness::run_test(
                     subdag.nodes.get(leaf_index).unwrap().elem,
                     &data,
                 ));
@@ -139,7 +136,7 @@ impl<'a> Scheduler<'a> {
                             if children_completed
                                 >= subdag.nodes.get(*parent_index).unwrap().children.len()
                             {
-                                test_futures.push(harness::run_test_series(
+                                test_futures.push(harness::run_test(
                                     subdag.nodes.get(*parent_index).unwrap().elem,
                                     &data,
                                 ))
@@ -152,146 +149,20 @@ impl<'a> Scheduler<'a> {
         });
 
         rx
-    }
-
-    // sad about the amount of repetition here... perhaps we can do better once async
-    // closures drop?
-    fn schedule_tests_spatial(
-        subdag: Dag<&'static str>,
-        data: DataCache,
-    ) -> Receiver<Result<ValidateSpatialResponse, Error>> {
-        // spawn and channel are required if you want handle "disconnect" functionality
-        // the `out_stream` will not be polled after client disconnect
-        let (tx, rx) = channel(subdag.nodes.len());
-        tokio::spawn(async move {
-            let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
-            let mut test_futures = FuturesUnordered::new();
-
-            for leaf_index in subdag.leaves.clone().into_iter() {
-                test_futures.push(harness::run_test_spatial(
-                    subdag.nodes.get(leaf_index).unwrap().elem,
-                    &data,
-                ));
-            }
-
-            while let Some(res) = test_futures.next().await {
-                match tx.send(res.clone().map_err(Error::Runner)).await {
-                    Ok(_) => {
-                        // item (server response) was queued to be send to client
-                    }
-                    Err(_item) => {
-                        // output_stream was build from rx and both are dropped
-                        break;
-                    }
-                }
-
-                match res {
-                    Ok(inner) => {
-                        let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
-
-                        for parent_index in
-                            subdag.nodes.get(*completed_index).unwrap().parents.iter()
-                        {
-                            let children_completed = children_completed_map
-                                .get(parent_index)
-                                .map(|x| x + 1)
-                                .unwrap_or(1);
-
-                            children_completed_map.insert(*parent_index, children_completed);
-
-                            if children_completed
-                                >= subdag.nodes.get(*parent_index).unwrap().children.len()
-                            {
-                                test_futures.push(harness::run_test_spatial(
-                                    subdag.nodes.get(*parent_index).unwrap().elem,
-                                    &data,
-                                ))
-                            }
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        });
-
-        rx
-    }
-
-    /// Run a set of timeseries QC tests on some data
-    ///
-    /// `series_id` is a string identifier of the data to be QCed in the form
-    /// "data_source_id:data_id", where `data_source_id` is the key identifying
-    /// a connector in the [`DataSwitch`](data_switch::DataSwitch), and `data_id`
-    /// is an extra identifier that gets passed to the relevant DataConnector.
-    /// The format of data_id is connector-specific. `timerange` represents
-    /// the range of the time in the time series whose data is to be QCed.
-    ///
-    /// `tests` represents the QC tests to be run. Any tests these depend on
-    /// will be found via the [`DAG`](Dag), and run as well.
-    ///
-    /// # Errors
-    ///
-    /// Returned from the function if:
-    /// - The provided test array is empty
-    /// - A test in the provided array did not have a matching entry in the DAG
-    /// - The data_source_id component of the provided series_id did not have a
-    ///   matching entry in the Scheduler's DataSwitch
-    ///
-    /// In the the returned channel if:
-    /// - The test harness encounters an error on during one of the QC tests.
-    ///   This will also result in the channel being closed
-    pub async fn validate_series_direct(
-        &self,
-        series_id: impl AsRef<str>,
-        tests: &[impl AsRef<str>],
-        time_spec: TimeSpec,
-    ) -> Result<Receiver<Result<ValidateSeriesResponse, Error>>, Error> {
-        if tests.is_empty() {
-            return Err(Error::InvalidArg("must specify at least 1 test to be run"));
-        }
-
-        let (data_source_id, data_id) = series_id
-            .as_ref()
-            .split_once(':')
-            // TODO: remove this unwrap by splitting these in the proto
-            .unwrap();
-
-        let data = match self
-            .data_switch
-            // TODO: num_leading and num_trailing here should be determined from the test list
-            .fetch_data(
-                data_source_id,
-                SpaceSpec::One(data_id),
-                time_spec,
-                2,
-                2,
-                // TODO: this should probably be able to be Some, needs fixing in proto
-                None,
-            )
-            .await
-        {
-            Ok(data) => data,
-            Err(e) => {
-                tracing::error!(%e);
-                return Err(Error::DataSwitch(e));
-            }
-        };
-
-        let subdag = self.construct_subdag(tests)?;
-
-        Ok(Scheduler::schedule_tests_series(subdag, data))
     }
 
     /// Run a set of spatial QC tests on some data
     ///
-    /// `spatial_id` is a string identifier of the data to be QCed in the form
-    /// "data_source_id:data_id", where `data_source_id` is the key identifying
-    /// a connector in the [`DataSwitch`](data_switch::DataSwitch), and `data_id`
-    /// is an extra identifier that gets passed to the relevant DataConnector.
-    /// The format of data_id is connector-specific. `time` represents
-    /// the timestamp of the spatial slice to be QCed, while `polygon` is a vec
-    /// of lat-lon pairs that encode the vertices of a polygon defining the
-    /// region of the spatial slice in which data should be QCed.
+    /// `data_source` is the key identifying a connector in the
+    /// [`DataSwitch`](data_switch::DataSwitch).
+    /// `backing_sources` a list of keys similar to `data_source`, but data
+    /// from these will only be used to QC data from `data_source` and will not
+    /// themselves be QCed.
+    /// `time_spec` and `space_spec` narrow down what data to QC, more info
+    /// on what these mean and how to construct them can be found on their
+    /// own doc pages.
+    /// `extra_spec` is an extra identifier that gets passed to the relevant
+    /// DataConnector. The format of `extra_spec` is connector-specific.
     ///
     /// `tests` represents the QC tests to be run. Any tests these depend on
     /// will be found via the [`DAG`](Dag), and run as well.
@@ -301,46 +172,38 @@ impl<'a> Scheduler<'a> {
     /// Returned from the function if:
     /// - The provided test array is empty
     /// - A test in the provided array did not have a matching entry in the DAG
-    /// - The data_source_id component of the provided spatial_id did not have a
-    ///   matching entry in the Scheduler's DataSwitch
+    /// - The data_source string did not have a matching entry in the
+    ///   Scheduler's DataSwitch
     ///
     /// In the the returned channel if:
     /// - The test harness encounters an error on during one of the QC tests.
     ///   This will also result in the channel being closed
-    pub async fn validate_spatial_direct(
+    pub async fn validate_direct(
         &self,
-        spatial_id: impl AsRef<str>,
+        data_source: impl AsRef<str>,
+        // TODO: we should actually use these
+        _backing_sources: &[impl AsRef<str>],
+        // TODO: should we allow a way to call this without a dependency on chronoutil?
+        // adding a constructor for timespec that can take a string would achieve this
+        time_spec: &TimeSpec,
+        space_spec: &SpaceSpec,
         tests: &[impl AsRef<str>],
-        polygon: &Polygon,
-        time: Timestamp,
-    ) -> Result<Receiver<Result<ValidateSpatialResponse, Error>>, Error> {
+        extra_spec: Option<&str>,
+    ) -> Result<Receiver<Result<ValidateResponse, Error>>, Error> {
         if tests.is_empty() {
             return Err(Error::InvalidArg("must specify at least 1 test to be run"));
         }
 
-        let (data_source_id, extra_spec) = spatial_id
-            .as_ref()
-            .split_once(':')
-            // TODO: remove this unwrap by splitting these in the proto
-            .unwrap();
-
         let data = match self
             .data_switch
             .fetch_data(
-                data_source_id,
-                SpaceSpec::Polygon(polygon),
-                TimeSpec {
-                    timerange: Timerange {
-                        start: time,
-                        end: time,
-                    },
-                    // TODO: should be a real value
-                    time_resolution: RelativeDuration::minutes(5),
-                },
+                data_source.as_ref(),
+                space_spec,
+                time_spec,
+                // TODO: derive num_leading and num_trailing from test list
                 0,
                 0,
-                // TODO: This should probably be able to be None, needs fixing in proto
-                Some(extra_spec),
+                extra_spec,
             )
             .await
         {
@@ -353,7 +216,7 @@ impl<'a> Scheduler<'a> {
 
         let subdag = self.construct_subdag(tests)?;
 
-        Ok(Scheduler::schedule_tests_spatial(subdag, data))
+        Ok(Scheduler::schedule_tests(subdag, data))
     }
 }
 

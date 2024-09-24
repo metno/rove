@@ -147,14 +147,14 @@ pub mod dev_utils {
     impl DataConnector for TestDataSource {
         async fn fetch_data(
             &self,
-            space_spec: SpaceSpec<'_>,
-            _time_spec: TimeSpec,
+            space_spec: &SpaceSpec,
+            _time_spec: &TimeSpec,
             num_leading_points: u8,
             num_trailing_points: u8,
             _extra_spec: Option<&str>,
         ) -> Result<DataCache, data_switch::Error> {
             match space_spec {
-                SpaceSpec::One(data_id) => match data_id {
+                SpaceSpec::One(data_id) => match data_id.as_str() {
                     // TODO: should we maybe be using time_spec for these instead of data_id?
                     // maybe something to come back to when we finalize the format of time_spec
                     "single" => black_box(Ok(DataCache::new(
@@ -165,7 +165,7 @@ pub mod dev_utils {
                         RelativeDuration::minutes(5),
                         num_leading_points,
                         num_trailing_points,
-                        vec![vec![Some(1.); self.data_len_single]; 1],
+                        vec![("test".to_string(), vec![Some(1.); self.data_len_single]); 1],
                     ))),
                     "series" => black_box(Ok(DataCache::new(
                         vec![0.; 1],
@@ -175,7 +175,7 @@ pub mod dev_utils {
                         RelativeDuration::minutes(5),
                         num_leading_points,
                         num_trailing_points,
-                        vec![vec![Some(1.); self.data_len_spatial]; 1],
+                        vec![("test".to_string(), vec![Some(1.); self.data_len_spatial]); 1],
                     ))),
                     _ => panic!("unknown data_id"),
                 },
@@ -192,7 +192,7 @@ pub mod dev_utils {
                     // TODO: update this to use num_leading/trailing?
                     0,
                     0,
-                    vec![vec![Some(1.); 1]; self.data_len_spatial],
+                    vec![("test".to_string(), vec![Some(1.); 1]); self.data_len_spatial],
                 ))),
                 SpaceSpec::Polygon(_) => unimplemented!(),
             }
