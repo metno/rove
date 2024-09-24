@@ -58,3 +58,20 @@ pub fn extract_location(
 
     Ok(lat_lon_elev)
 }
+
+pub fn extract_station_id(header: &mut serde_json::Value) -> Result<String, Error> {
+    let station_id: i32 = serde_json::from_value(
+        header
+            .get_mut("id")
+            .ok_or(Error::FindMetadata(
+                "couldn't find id in header".to_string(),
+            ))?
+            .get_mut("stationid")
+            .ok_or(Error::FindMetadata(
+                "couldn't find stationid field in id".to_string(),
+            ))?
+            .take(),
+    )?;
+
+    Ok(station_id.to_string())
+}

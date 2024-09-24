@@ -1,10 +1,10 @@
 use crate::{
     dag::Dag,
-    data_switch::{DataSwitch, GeoPoint, Polygon, TimeSpec, Timerange, Timestamp},
+    data_switch::{DataSwitch, GeoPoint, SpaceSpec, TimeSpec, Timerange, Timestamp},
     pb::{
+        self,
         rove_server::{Rove, RoveServer},
-        ValidateSeriesRequest, ValidateSeriesResponse, ValidateSpatialRequest,
-        ValidateSpatialResponse,
+        ValidateRequest, ValidateResponse,
     },
     scheduler::{self, Scheduler},
 };
@@ -15,10 +15,7 @@ use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::{ReceiverStream, UnixListenerStream};
 use tonic::{transport::Server, Request, Response, Status};
 
-type SeriesResponseStream =
-    Pin<Box<dyn Stream<Item = Result<ValidateSeriesResponse, Status>> + Send>>;
-type SpatialResponseStream =
-    Pin<Box<dyn Stream<Item = Result<ValidateSpatialResponse, Status>> + Send>>;
+type ResponseStream = Pin<Box<dyn Stream<Item = Result<ValidateResponse, Status>> + Send>>;
 
 #[derive(Debug)]
 enum ListenerType {
@@ -45,101 +42,62 @@ impl From<scheduler::Error> for Status {
 
 #[tonic::async_trait]
 impl Rove for Scheduler<'static> {
-    type ValidateSeriesStream = SeriesResponseStream;
-    type ValidateSpatialStream = SpatialResponseStream;
+    type ValidateStream = ResponseStream;
 
     #[tracing::instrument]
-    async fn validate_series(
+    async fn validate(
         &self,
-        request: Request<ValidateSeriesRequest>,
-    ) -> Result<Response<Self::ValidateSeriesStream>, Status> {
+        request: Request<ValidateRequest>,
+    ) -> Result<Response<Self::ValidateStream>, Status> {
         tracing::debug!("Got a request: {:?}", request);
 
         let req = request.into_inner();
         let req_len = req.tests.len();
 
-        let mut rx = self
-            .validate_series_direct(
-                req.series_id,
-                &req.tests,
-                TimeSpec {
-                    timerange: Timerange {
-                        start: Timestamp(
-                            req.start_time
-                                .as_ref()
-                                .ok_or(Status::invalid_argument(
-                                    "invalid timestamp for start_time",
-                                ))?
-                                .seconds,
-                        ),
-                        end: Timestamp(
-                            req.end_time
-                                .as_ref()
-                                .ok_or(Status::invalid_argument(
-                                    "invalid timestamp for start_time",
-                                ))?
-                                .seconds,
-                        ),
-                    },
-                    // TODO: should be a real value
-                    time_resolution: RelativeDuration::minutes(5),
-                },
-            )
-            .await
-            .map_err(Into::<Status>::into)?;
-
-        // TODO: remove this channel chaining once async iterators drop
-        let (tx_final, rx_final) = channel(req_len);
-        tokio::spawn(async move {
-            while let Some(i) = rx.recv().await {
-                match tx_final.send(i.map_err(|e| e.into())).await {
-                    Ok(_) => {
-                        // item (server response) was queued to be send to client
-                    }
-                    Err(_item) => {
-                        // output_stream was build from rx and both are dropped
-                        break;
-                    }
-                };
-            }
-        });
-
-        let output_stream = ReceiverStream::new(rx_final);
-        Ok(Response::new(
-            Box::pin(output_stream) as Self::ValidateSeriesStream
-        ))
-    }
-
-    #[tracing::instrument]
-    async fn validate_spatial(
-        &self,
-        request: Request<ValidateSpatialRequest>,
-    ) -> Result<Response<Self::ValidateSpatialStream>, Status> {
-        tracing::debug!("Got a request: {:?}", request);
-
-        let req = request.into_inner();
-        let req_len = req.tests.len();
-
-        let polygon: &Polygon = &req
-            .polygon
-            .into_iter()
-            .map(|point| GeoPoint {
-                lat: point.lat,
-                lon: point.lon,
-            })
-            .collect::<Vec<GeoPoint>>();
-
-        let mut rx = self
-            .validate_spatial_direct(
-                req.spatial_id,
-                &req.tests,
-                polygon,
-                Timestamp(
-                    req.time
+        let time_spec = TimeSpec {
+            timerange: Timerange {
+                start: Timestamp(
+                    req.start_time
                         .as_ref()
                         .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
                         .seconds,
                 ),
+                end: Timestamp(
+                    req.end_time
+                        .as_ref()
+                        .ok_or(Status::invalid_argument("invalid timestamp for start_time"))?
+                        .seconds,
+                ),
+            },
+            time_resolution: RelativeDuration::parse_from_iso8601(&req.time_resolution)
+                .map_err(|e| Status::invalid_argument(format!("invalid time_resolution: {}", e)))?,
+        };
+
+        // TODO: implementing From<pb::validate_request::SpaceSpec> for SpaceSpec
+        // would make this much neater
+        let space_spec = match req.space_spec.unwrap() {
+            pb::validate_request::SpaceSpec::One(station_id) => SpaceSpec::One(station_id),
+            pb::validate_request::SpaceSpec::Polygon(pb_polygon) => SpaceSpec::Polygon(
+                pb_polygon
+                    .polygon
+                    .into_iter()
+                    .map(|point| GeoPoint {
+                        lat: point.lat,
+                        lon: point.lon,
+                    })
+                    .collect::<Vec<GeoPoint>>(),
+            ),
+            pb::validate_request::SpaceSpec::All(_) => SpaceSpec::All,
+        };
+
+        let mut rx = self
+            .validate_direct(
+                req.data_source,
+                &req.backing_sources,
+                &time_spec,
+                &space_spec,
+                &req.tests,
+                req.extra_spec.as_deref(),
             )
             .await
             .map_err(Into::<Status>::into)?;
@@ -162,7 +120,7 @@ impl Rove for Scheduler<'static> {
 
         let output_stream = ReceiverStream::new(rx_final);
         Ok(Response::new(
-            Box::pin(output_stream) as Self::ValidateSpatialStream
+            Box::pin(output_stream) as Self::ValidateStream
         ))
     }
 }

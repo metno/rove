@@ -1,17 +1,23 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 package rove;
 
 service Rove {
-  rpc ValidateSeries (ValidateSeriesRequest) returns (stream ValidateSeriesResponse) {}
-  rpc ValidateSpatial (ValidateSpatialRequest) returns (stream ValidateSpatialResponse) {}
+  // TODO: should we reconsider allowing results to stream, in favour of a more
+  // space efficient response format?
+  rpc Validate (ValidateRequest) returns (stream ValidateResponse) {}
 }
 
 message GeoPoint {
   float lat = 1;
   float lon = 2;
+}
+
+message Polygon {
+  repeated GeoPoint polygon = 1;
 }
 
 enum Flag { // WIP
@@ -24,59 +30,50 @@ enum Flag { // WIP
   ISOLATED = 6;
 }
 
-// tests a time series between start_time and end_time
-message ValidateSeriesRequest {
-  // resource locator of the form <data source>:<source-specific identifier>
-  // e.g. oda:123456 where oda is a data source known to the system, and 123456
-  // is a timeseries ID in oda
-  string series_id = 1;
-  // if not provided, the start of the time series will be used
-  optional google.protobuf.Timestamp start_time = 2;
-  // if not provided, the end of the time series will be used
-  optional google.protobuf.Timestamp end_time = 3;
-  // list of the names of tests to be run on the data
-  repeated string tests = 4;
-}
-
-// tests a time slice with optional list of data sources to use, and a list of
-// coordinates that define a polygon representing the area to be tested
-message ValidateSpatialRequest {
-  // resource locator of the form <data source>:<source-specific identifier>
-  // e.g. frost:air_temperature where frost is a data source known to the system,
-  // and air_temperature is the element for the call to get data
-  string spatial_id = 1;
-  // extra data sources providing data to help qc the first source, but he data
-  // from these sources will not be qced themselves
+message ValidateRequest {
+  // name of the data source you want to QC data from
+  string data_source = 1;
+  // extra data sources providing data to help QC the first source, but the data
+  // from these sources will not be QCed themselves
   repeated string backing_sources = 2;
-  google.protobuf.Timestamp time = 3;
-  repeated string tests = 4;
-  // if not provided, the whole globe will be used
-  repeated GeoPoint polygon = 5;
+  // timestamps defining an inclusive range of time to QC data from
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  // an ISO 8601 duration stamp defining the time resolution of data do be QCed
+  // (e.g. "PT1H" for hourly data)
+  string time_resolution = 5;
+  // one of 3 specifiers can be used to spatially specify down the data to be
+  // QCed
+  oneof SpaceSpec {
+    // one series of data (i.e one data point per time step) with a string that
+    // will be passed to the data connector to identify it. This will likely
+    // represent something like a timeseries id, station id and param id pair,
+    // or similar, but is left up to the data connector/source to define
+    string one = 6;
+    // a series of lat-lon points defining a polygon in space
+    Polygon polygon = 7;
+    // no spatial restriction at all
+    google.protobuf.Empty all = 8;
+  }
+  // list of the names of tests to be run on the data
+  repeated string tests = 9;
+  // optional string containing extra information to be passed to the data
+  // connector, to further specify the data to be QCed
+  optional string extra_spec = 10;
 }
 
-message SeriesTestResult {
+message TestResult {
   google.protobuf.Timestamp time = 1;
-  Flag flag = 2;
+  // data source defined identifier, it's recommended to use this to identify
+  // a timeseries/station/location as appropriate
+  string identifier = 2;
+  Flag flag = 3;
 }
 
-message ValidateSeriesResponse {
+message ValidateResponse {
   // name of the test this flag is from
   string test = 1;
-  // results for each data point in the series, paired with timestamps to
+  // results for each data point, paired with timestamp and an identifier to
   // identify the point
-  repeated SeriesTestResult results = 2;
-}
-
-message SpatialTestResult {
-  // TODO: maybe this should contain the series ID?
-  GeoPoint location = 1;
-  Flag flag = 2;
-}
-
-message ValidateSpatialResponse {
-  // name of the test this flag is from
-  string test = 1;
-  // results for each data point in the series, paired with geopoints to
-  // identify the point
-  repeated SpatialTestResult results = 2;
+  repeated TestResult results = 2;
 }
