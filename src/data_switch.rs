@@ -187,9 +187,9 @@ impl DataCache {
 ///         // Specifier to restrict the data fetched spatially. Can be used
 ///         // to specify a single timeseries, all timeseries within a polygon,
 ///         // or the entire dataset.
-///         _space_spec: SpaceSpec<'_>,
+///         _space_spec: &SpaceSpec,
 ///         // Specifier to restrict the data fetched by time.
-///         time_spec: Timerange,
+///         time_spec: &TimeSpec,
 ///         // Some timeseries QC tests require extra data from before
 ///         // the start of the timerange to function. ROVE determines
 ///         // how many extra data points are needed, and passes that in
@@ -209,11 +209,11 @@ impl DataCache {
 ///             vec![1.],
 ///             vec![1.],
 ///             vec![1.],
-///             Timestamp(time_spec.start),
-///             RelativeDuration::minutes(5),
+///             time_spec.timerange.start,
+///             time_spec.time_resolution,
 ///             num_leading_points,
 ///             num_trailing_points,
-///             vec![vec![Some(1.)]],
+///             vec![(String::from("identifier"), vec![Some(1.)])],
 ///         ))
 ///     }
 /// }
