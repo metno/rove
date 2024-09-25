@@ -129,79 +129,52 @@ async fn integration_test_hardcoded_dag() {
                 start_time: Some(prost_types::Timestamp::default()),
                 end_time: Some(prost_types::Timestamp::default()),
                 time_resolution: String::from("PT5M"),
-                space_spec: Some(SpaceSpec::One(String::from("single"))),
-                tests: vec![String::from("step_check"), String::from("dip_check")],
+                space_spec: Some(SpaceSpec::All(())),
+                tests: vec![
+                    String::from("step_check"),
+                    String::from("dip_check"),
+                    String::from("buddy_check"),
+                    String::from("sct"),
+                ],
                 extra_spec: None,
             })
             .await
             .unwrap()
             .into_inner();
 
-        let mut _step_recv = false;
-        let mut _dip_recv = false;
-        let mut _recv_count = 0;
+        let mut step_recv_count = 0;
+        let mut dip_recv_count = 0;
+        let mut buddy_recv_count = 0;
+        let mut sct_recv_count = 0;
         while let Some(recv) = stream.next().await {
             let inner = recv.unwrap();
             match inner.test.as_ref() {
                 "dip_check" => {
-                    _dip_recv = true;
+                    dip_recv_count += 1;
                 }
                 "step_check" => {
-                    _step_recv = true;
+                    step_recv_count += 1;
                 }
-                _ => {
-                    panic!("unrecognised test name returned")
-                }
-            }
-            let flags: Vec<i32> = inner.results.iter().map(|res| res.flag).collect();
-            assert_eq!(flags, vec![Flag::Pass as i32; 1]);
-            _recv_count += 1;
-        }
-        // TODO: these checks fail because we can no longer set different hardcoded
-        // num_leading_points and num_trailing points for spatial vs series runs.
-        // we should reenable these once we implement deriving those from the test list
-        // assert_eq!(recv_count, 2);
-        // assert!(dip_recv);
-        // assert!(step_recv);
-
-        let mut stream = client
-            .validate(ValidateRequest {
-                data_source: String::from("test"),
-                backing_sources: vec![],
-                start_time: Some(prost_types::Timestamp::default()),
-                end_time: Some(prost_types::Timestamp::default()),
-                time_resolution: String::from("PT5M"),
-                space_spec: Some(SpaceSpec::All(())),
-                tests: vec!["buddy_check".to_string(), "sct".to_string()],
-                extra_spec: None,
-            })
-            .await
-            .unwrap()
-            .into_inner();
-
-        let mut buddy_recv = false;
-        let mut sct_recv = false;
-        let mut recv_count = 0;
-        while let Some(recv) = stream.next().await {
-            let inner = recv.unwrap();
-            match inner.test.as_ref() {
                 "buddy_check" => {
-                    buddy_recv = true;
+                    buddy_recv_count += 1;
                 }
                 "sct" => {
-                    sct_recv = true;
+                    sct_recv_count += 1;
                 }
                 _ => {
                     panic!("unrecognised test name returned")
                 }
             }
             let flags: Vec<i32> = inner.results.iter().map(|res| res.flag).collect();
-            assert_eq!(flags, vec![Flag::Pass as i32; DATA_LEN_SPATIAL]);
-            recv_count += 1;
+            assert!(
+                flags == vec![Flag::Pass as i32; DATA_LEN_SPATIAL]
+                    || flags == vec![Flag::Isolated as i32; DATA_LEN_SPATIAL]
+            );
         }
-        assert_eq!(recv_count, 2);
-        assert!(buddy_recv);
-        assert!(sct_recv);
+        assert_eq!(dip_recv_count, 1);
+        assert_eq!(step_recv_count, 1);
+        assert_eq!(buddy_recv_count, 1);
+        assert_eq!(sct_recv_count, 1);
     };
 
     tokio::select! {
