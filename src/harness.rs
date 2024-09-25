@@ -17,12 +17,12 @@ pub enum Error {
     UnknownFlag(String),
 }
 
-// TODO: make sure we aren't feeding leading/trailing values to the spatial tests
 pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse, Error> {
     let flags: Vec<(String, Vec<Flag>)> = match test {
         // TODO: put these in a lookup table?
         "dip_check" => {
-            const LEADING_PER_RUN: u8 = 2;
+            const LEADING_PER_RUN: u8 = 1;
+            const TRAILING_PER_RUN: u8 = 1;
 
             // TODO: use actual test params
             // TODO: use par_iter?
@@ -35,9 +35,9 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
             for i in 0..cache.data.len() {
                 result_vec.push((
                     cache.data[i].0.clone(),
-                    cache.data[i].1
-                        [(cache.num_leading_points - LEADING_PER_RUN).into()..series_len]
-                        .windows((LEADING_PER_RUN + 1).into())
+                    cache.data[i].1[(cache.num_leading_points - LEADING_PER_RUN).into()
+                        ..(series_len - (cache.num_trailing_points - TRAILING_PER_RUN) as usize)]
+                        .windows((LEADING_PER_RUN + 1 + TRAILING_PER_RUN).into())
                         .map(|window| {
                             olympian::dip_check(window, 2., 3.)?
                                 .try_into()
@@ -50,6 +50,7 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
         }
         "step_check" => {
             const LEADING_PER_RUN: u8 = 1;
+            const TRAILING_PER_RUN: u8 = 0;
 
             let mut result_vec = Vec::with_capacity(cache.data.len());
 
@@ -59,8 +60,8 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
             for i in 0..cache.data.len() {
                 result_vec.push((
                     cache.data[i].0.clone(),
-                    cache.data[i].1
-                        [(cache.num_leading_points - LEADING_PER_RUN).into()..series_len]
+                    cache.data[i].1[(cache.num_leading_points - LEADING_PER_RUN).into()
+                        ..(series_len - (cache.num_trailing_points - TRAILING_PER_RUN) as usize)]
                         .windows((LEADING_PER_RUN + 1).into())
                         .map(|window| {
                             olympian::step_check(window, 2., 3.)?
@@ -83,7 +84,9 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                 .map(|ts| (ts.0.clone(), Vec::with_capacity(series_len)))
                 .collect();
 
-            for i in 0..series_len {
+            for i in (cache.num_leading_points as usize)
+                ..(series_len - cache.num_trailing_points as usize)
+            {
                 // TODO: change `buddy_check` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v.1[i].unwrap()).collect();
 
@@ -139,7 +142,9 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                 .map(|ts| (ts.0.clone(), Vec::with_capacity(series_len)))
                 .collect();
 
-            for i in 0..series_len {
+            for i in (cache.num_leading_points as usize)
+                ..(series_len - cache.num_trailing_points as usize)
+            {
                 // TODO: change `sct` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v.1[i].unwrap()).collect();
                 let spatial_result = olympian::sct(
