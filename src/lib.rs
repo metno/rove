@@ -196,10 +196,18 @@ pub mod dev_utils {
                     vec![1.; self.data_len_spatial],
                     Timestamp(0),
                     RelativeDuration::minutes(5),
-                    // TODO: update this to use num_leading/trailing?
-                    0,
-                    0,
-                    vec![("test".to_string(), vec![Some(1.); 1]); self.data_len_spatial],
+                    num_leading_points,
+                    num_trailing_points,
+                    vec![
+                        (
+                            "test".to_string(),
+                            vec![
+                                Some(1.);
+                                num_leading_points as usize + 1 + num_trailing_points as usize
+                            ]
+                        );
+                        self.data_len_spatial
+                    ],
                 ))),
                 SpaceSpec::Polygon(_) => unimplemented!(),
             }

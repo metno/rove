@@ -201,8 +201,8 @@ impl<'a> Scheduler<'a> {
                 space_spec,
                 time_spec,
                 // TODO: derive num_leading and num_trailing from test list
-                0,
-                0,
+                1,
+                1,
                 extra_spec,
             )
             .await
