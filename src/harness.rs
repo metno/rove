@@ -103,30 +103,8 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                     &vec![true; n],
                 )?;
 
-                if spatial_result
-                    .iter()
-                    .any(|flag| Flag::try_from(*flag).is_err())
-                {
-                    return Err(Error::UnknownFlag(
-                        // this is messy, but at least it's not on the critical path
-                        // and it lets the critical path code be more efficient
-                        Flag::try_from(
-                            *spatial_result
-                                .iter()
-                                .find(|flag| Flag::try_from(**flag).is_err())
-                                .unwrap(),
-                        )
-                        .err()
-                        .unwrap(),
-                    ));
-                }
-
-                for (i, flag) in spatial_result
-                    .into_iter()
-                    .map(|flag| flag.try_into().unwrap())
-                    .enumerate()
-                {
-                    result_vec[i].1.push(flag);
+                for (i, flag) in spatial_result.into_iter().map(Flag::try_from).enumerate() {
+                    result_vec[i].1.push(flag.map_err(Error::UnknownFlag)?);
                 }
             }
             result_vec
@@ -165,30 +143,8 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                     None,
                 )?;
 
-                if spatial_result
-                    .iter()
-                    .any(|flag| Flag::try_from(*flag).is_err())
-                {
-                    return Err(Error::UnknownFlag(
-                        // this is messy, but at least it's not on the critical path
-                        // and it lets the critical path code be more efficient
-                        Flag::try_from(
-                            *spatial_result
-                                .iter()
-                                .find(|flag| Flag::try_from(**flag).is_err())
-                                .unwrap(),
-                        )
-                        .err()
-                        .unwrap(),
-                    ));
-                }
-
-                for (i, flag) in spatial_result
-                    .into_iter()
-                    .map(|flag| flag.try_into().unwrap())
-                    .enumerate()
-                {
-                    result_vec[i].1.push(flag);
+                for (i, flag) in spatial_result.into_iter().map(Flag::try_from).enumerate() {
+                    result_vec[i].1.push(flag.map_err(Error::UnknownFlag)?);
                 }
             }
             result_vec
