@@ -78,7 +78,32 @@ pub struct TimeSpec {
     /// The range in time of data to fetch
     pub timerange: Timerange,
     /// The time resolution of data that should be fetched
-    pub time_resolution: chronoutil::RelativeDuration,
+    pub time_resolution: RelativeDuration,
+}
+
+impl TimeSpec {
+    /// Construct a new `TimeSpec` with specified start and end timestamps, and
+    /// a time resolution.
+    pub fn new(start: Timestamp, end: Timestamp, time_resolution: RelativeDuration) -> Self {
+        TimeSpec {
+            timerange: Timerange { start, end },
+            time_resolution,
+        }
+    }
+
+    /// Alternative constructor for `TimeSpec` with time resolution specified
+    /// using an ISO 8601 duration stamp, to avoid a dependency on chronoutil.
+    pub fn new_time_resolution_string(
+        start: Timestamp,
+        end: Timestamp,
+        time_resolution: &str,
+    ) -> Result<Self, String> {
+        Ok(TimeSpec {
+            timerange: Timerange { start, end },
+            time_resolution: RelativeDuration::parse_from_iso8601(time_resolution)
+                .map_err(|e| e.to_string())?,
+        })
+    }
 }
 
 /// Specifier of geographic position, by latitude and longitude

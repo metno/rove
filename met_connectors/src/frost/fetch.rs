@@ -28,11 +28,6 @@ fn extract_data(
                 "couldn't find header field on tseries".to_string(),
             ))?;
 
-            let station_id = util::extract_station_id(header)?;
-
-            // TODO: Should there be a location for each observation?
-            let location = util::extract_location(header, time)?;
-
             // TODO: differentiate actual parse errors from missing duration?
             let ts_time_resolution_result = util::extract_duration(header);
             if ts_time_resolution_result.is_err()
@@ -40,6 +35,11 @@ fn extract_data(
             {
                 return Ok(None);
             }
+
+            let station_id = util::extract_station_id(header)?;
+
+            // TODO: Should there be a location for each observation?
+            let location = util::extract_location(header, time)?;
 
             let obs: Vec<FrostObs> = serde_json::from_value(
                 ts.get_mut("observations")
@@ -51,12 +51,8 @@ fn extract_data(
 
             Ok(Some(((station_id, obs), location)))
         })
-        // Is there some smart way to avoid a double collect without making the error handling
-        // messy?
-        .collect::<Result<Vec<Option<((String, Vec<FrostObs>), FrostLatLonElev)>>, Error>>()?
-        .into_iter()
-        .flatten()
-        .collect();
+        .filter_map(Result::transpose)
+        .collect::<Result<Vec<((String, Vec<FrostObs>), FrostLatLonElev)>, Error>>()?;
 
     Ok(data)
 }
@@ -127,22 +123,17 @@ fn json_to_data_cache(
 
             // insert obses into data, with Nones for gaps in the series
             for obs in obses {
+                while curr_obs_time < obs.time {
+                    data.push(None);
+                    curr_obs_time = curr_obs_time + period;
+                }
                 if curr_obs_time == obs.time {
                     data.push(Some(obs.body.value));
                     curr_obs_time = curr_obs_time + period;
                 } else {
-                    while curr_obs_time < obs.time {
-                        data.push(None);
-                        curr_obs_time = curr_obs_time + period;
-                    }
-                    if curr_obs_time == obs.time {
-                        data.push(Some(obs.body.value));
-                        curr_obs_time = curr_obs_time + period;
-                    } else {
-                        return Err(Error::Misalignment(
-                            "obs misaligned with series".to_string(),
-                        ));
-                    }
+                    return Err(Error::Misalignment(
+                        "obs misaligned with series".to_string(),
+                    ));
                 }
             }
 
@@ -191,13 +182,12 @@ pub async fn fetch_data_inner(
     let interval_end = Utc.timestamp_opt(time_spec.timerange.end.0, 0).unwrap();
 
     let extra_query_param = match space_spec {
-        SpaceSpec::One(station_id) => Some(("stationids", station_id.to_string())),
-        SpaceSpec::Polygon(polygon) => Some(("polygon", parse_polygon(polygon))),
-        SpaceSpec::All => None,
-    }
-    .ok_or(data_switch::Error::Other(Box::new(
-        Error::InvalidSpaceSpec("space_spec for frost cannot be `All`, as frost will time out"),
-    )))?;
+        SpaceSpec::One(station_id) => Ok(("stationids", station_id.to_string())),
+        SpaceSpec::Polygon(polygon) => Ok(("polygon", parse_polygon(polygon))),
+        SpaceSpec::All => Err(data_switch::Error::Other(Box::new(
+            Error::InvalidSpaceSpec("space_spec for frost cannot be `All`, as frost will time out"),
+        ))),
+    }?;
 
     let resp: serde_json::Value = client
         .get("https://frost-beta.met.no/api/v1/obs/met.no/filter/get")
@@ -487,7 +477,7 @@ mod tests {
                                 ]
                             },
                             "timeoffset": "PT0H",
-                            "timeresolution": "PT1M"
+                            "timeresolution": "PT1H"
                         }
                     },
                     "available": {
@@ -631,6 +621,6 @@ mod tests {
 
         // This test is a lot less useful since we made spatial queries only return timeseries with
         // the requested timeresolution
-        assert_eq!(spatial_cache.data.len(), 1);
+        assert_eq!(spatial_cache.data.len(), 2);
     }
 }

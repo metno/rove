@@ -58,21 +58,19 @@
 //!     let mut rx = rove_scheduler.validate_direct(
 //!         "my_data_source",
 //!         &vec!["my_backing_source"],
-//!         &TimeSpec{
-//!             timerange: Timerange{
-//!                 start: Timestamp(
-//!                     Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0)
-//!                         .unwrap()
-//!                         .timestamp(),
-//!                 ),
-//!                 end: Timestamp(
-//!                     Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0)
-//!                         .unwrap()
-//!                         .timestamp(),
-//!                 ),
-//!             },
-//!             time_resolution: RelativeDuration::minutes(5),
-//!         },
+//!         &TimeSpec::new(
+//!             Timestamp(
+//!                 Utc.with_ymd_and_hms(2023, 6, 26, 12, 0, 0)
+//!                     .unwrap()
+//!                     .timestamp(),
+//!             ),
+//!             Timestamp(
+//!                 Utc.with_ymd_and_hms(2023, 6, 26, 14, 0, 0)
+//!                     .unwrap()
+//!                     .timestamp(),
+//!             ),
+//!             RelativeDuration::minutes(5),
+//!         ),
 //!         &SpaceSpec::One(String::from("station_id")),
 //!         &["dip_check", "step_check"],
 //!         None,
@@ -182,7 +180,7 @@ pub mod dev_utils {
                         RelativeDuration::minutes(5),
                         num_leading_points,
                         num_trailing_points,
-                        vec![("test".to_string(), vec![Some(1.); self.data_len_spatial]); 1],
+                        vec![("test".to_string(), vec![Some(1.); self.data_len_series]); 1],
                     ))),
                     _ => panic!("unknown data_id"),
                 },

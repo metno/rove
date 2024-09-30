@@ -151,7 +151,7 @@ impl<'a> Scheduler<'a> {
         rx
     }
 
-    /// Run a set of spatial QC tests on some data
+    /// Run a set of QC tests on some data
     ///
     /// `data_source` is the key identifying a connector in the
     /// [`DataSwitch`](data_switch::DataSwitch).
@@ -183,8 +183,6 @@ impl<'a> Scheduler<'a> {
         data_source: impl AsRef<str>,
         // TODO: we should actually use these
         _backing_sources: &[impl AsRef<str>],
-        // TODO: should we allow a way to call this without a dependency on chronoutil?
-        // adding a constructor for timespec that can take a string would achieve this
         time_spec: &TimeSpec,
         space_spec: &SpaceSpec,
         tests: &[impl AsRef<str>],
