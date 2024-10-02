@@ -98,6 +98,7 @@
 mod dag;
 pub mod data_switch;
 mod harness;
+mod pipeline;
 mod scheduler;
 mod server;
 
