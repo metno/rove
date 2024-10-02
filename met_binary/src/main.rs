@@ -3,10 +3,9 @@ use met_connectors::Frost;
 use met_connectors::LustreNetatmo;
 use rove::{
     data_switch::{DataConnector, DataSwitch},
-    dev_utils::construct_hardcoded_dag,
-    start_server,
+    load_pipelines, start_server,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 use tracing::Level;
 
 #[derive(Parser, Debug)]
@@ -16,6 +15,8 @@ struct Args {
     address: String,
     #[arg(short = 'l', long, default_value_t = Level::INFO)]
     max_trace_level: Level,
+    #[arg(short, long, default_value_t = String::from("sample_pipeline/fresh"))]
+    pipeline_dir: String,
 }
 
 // TODO: use anyhow for error handling?
@@ -35,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_server(
         args.address.parse()?,
         data_switch,
-        construct_hardcoded_dag(),
+        load_pipelines(Path::new(&args.pipeline_dir))?,
     )
     .await
 }
