@@ -95,14 +95,13 @@
 
 #![warn(missing_docs)]
 
-mod dag;
 pub mod data_switch;
 mod harness;
 mod pipeline;
 mod scheduler;
 mod server;
 
-pub use dag::Dag;
+pub use pipeline::load_pipelines;
 
 pub use scheduler::Scheduler;
 
@@ -136,7 +135,7 @@ pub(crate) mod pb {
 pub mod dev_utils {
     use crate::{
         data_switch::{self, DataCache, DataConnector, SpaceSpec, TimeSpec, Timestamp},
-        Dag,
+        pipeline::{CheckConf, Pipeline, PipelineStep},
     };
     use async_trait::async_trait;
     use chronoutil::RelativeDuration;
@@ -213,30 +212,46 @@ pub mod dev_utils {
         }
     }
 
-    pub fn construct_fake_dag() -> Dag<&'static str> {
-        let mut dag: Dag<&'static str> = Dag::new();
-
-        let test6 = dag.add_node("test6");
-
-        let test4 = dag.add_node_with_children("test4", vec![test6]);
-        let test5 = dag.add_node_with_children("test5", vec![test6]);
-
-        let test2 = dag.add_node_with_children("test2", vec![test4]);
-        let test3 = dag.add_node_with_children("test3", vec![test5]);
-
-        let _test1 = dag.add_node_with_children("test1", vec![test2, test3]);
-
-        dag
+    pub fn construct_fake_pipeline() -> Pipeline {
+        Pipeline {
+            steps: vec![
+                PipelineStep {
+                    name: "test1".to_string(),
+                    check: CheckConf::Dummy,
+                },
+                PipelineStep {
+                    name: "test2".to_string(),
+                    check: CheckConf::Dummy,
+                },
+                PipelineStep {
+                    name: "test3".to_string(),
+                    check: CheckConf::Dummy,
+                },
+                PipelineStep {
+                    name: "test4".to_string(),
+                    check: CheckConf::Dummy,
+                },
+                PipelineStep {
+                    name: "test5".to_string(),
+                    check: CheckConf::Dummy,
+                },
+                PipelineStep {
+                    name: "test6".to_string(),
+                    check: CheckConf::Dummy,
+                },
+            ],
+        }
     }
 
-    pub fn construct_hardcoded_dag() -> Dag<&'static str> {
-        let mut dag: Dag<&'static str> = Dag::new();
+    // TODO: replace this by just loading a sample pipeline toml?
+    // pub fn construct_hardcoded_dag() -> Dag<&'static str> {
+    //     let mut dag: Dag<&'static str> = Dag::new();
 
-        dag.add_node("dip_check");
-        dag.add_node("step_check");
-        dag.add_node("buddy_check");
-        dag.add_node("sct");
+    //     dag.add_node("dip_check");
+    //     dag.add_node("step_check");
+    //     dag.add_node("buddy_check");
+    //     dag.add_node("sct");
 
-        dag
-    }
+    //     dag
+    // }
 }

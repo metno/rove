@@ -1,15 +1,13 @@
 use crate::{
-    dag::{Dag, NodeId},
     data_switch::{self, DataCache, DataSwitch, SpaceSpec, TimeSpec},
     harness,
     // TODO: rethink this dependency?
     pb::ValidateResponse,
+    pipeline::Pipeline,
 };
-use futures::stream::FuturesUnordered;
 use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::mpsc::{channel, Receiver};
-use tokio_stream::StreamExt;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -26,90 +24,43 @@ pub enum Error {
 
 /// Receiver type for QC runs
 ///
-/// Holds information about test dependencies and data sources
+/// Holds information about test pipelines and data sources
 #[derive(Debug, Clone)]
 pub struct Scheduler<'a> {
-    // TODO: separate DAGs for series and spatial tests?
-    dag: Dag<&'static str>,
+    // this is pub so that the server can determine the number of checks in a pipeline to size
+    // its channel with. can be made private if the server functionality is deprecated
+    #[allow(missing_docs)]
+    pub pipelines: HashMap<String, Pipeline>,
     data_switch: DataSwitch<'a>,
 }
 
 impl<'a> Scheduler<'a> {
     /// Instantiate a new scheduler
-    pub fn new(dag: Dag<&'static str>, data_switch: DataSwitch<'a>) -> Self {
-        Scheduler { dag, data_switch }
-    }
-
-    /// Construct a subdag of the given dag with only the required nodes, and their
-    /// dependencies.
-    fn construct_subdag(
-        &self,
-        required_nodes: &[impl AsRef<str>],
-    ) -> Result<Dag<&'static str>, Error> {
-        fn add_descendants(
-            dag: &Dag<&'static str>,
-            subdag: &mut Dag<&'static str>,
-            curr_index: NodeId,
-            nodes_visited: &mut HashMap<NodeId, NodeId>,
-        ) {
-            for child_index in dag.nodes.get(curr_index).unwrap().children.iter() {
-                if let Some(new_index) = nodes_visited.get(child_index) {
-                    subdag.add_edge(*nodes_visited.get(&curr_index).unwrap(), *new_index);
-                } else {
-                    let new_index = subdag.add_node(dag.nodes.get(*child_index).unwrap().elem);
-                    subdag.add_edge(*nodes_visited.get(&curr_index).unwrap(), new_index);
-
-                    nodes_visited.insert(*child_index, new_index);
-
-                    add_descendants(dag, subdag, *child_index, nodes_visited);
-                }
-            }
+    pub fn new(pipelines: HashMap<String, Pipeline>, data_switch: DataSwitch<'a>) -> Self {
+        Scheduler {
+            pipelines,
+            data_switch,
         }
-
-        let mut subdag = Dag::new();
-
-        // this maps NodeIds from the dag to NodeIds from the subdag
-        let mut nodes_visited: HashMap<NodeId, NodeId> = HashMap::new();
-
-        for required in required_nodes.iter() {
-            let index = self
-                .dag
-                .index_lookup
-                .get(required.as_ref())
-                .ok_or(Error::TestNotInDag(required.as_ref().to_string()))?;
-
-            if !nodes_visited.contains_key(index) {
-                let subdag_index = subdag.add_node(self.dag.nodes.get(*index).unwrap().elem);
-
-                nodes_visited.insert(*index, subdag_index);
-
-                add_descendants(&self.dag, &mut subdag, *index, &mut nodes_visited);
-            }
-        }
-
-        Ok(subdag)
     }
 
     fn schedule_tests(
-        subdag: Dag<&'static str>,
+        pipeline: Pipeline,
         data: DataCache,
     ) -> Receiver<Result<ValidateResponse, Error>> {
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
-        let (tx, rx) = channel(subdag.nodes.len());
+        // TODO: Should we keep this channel or just return everything together?
+        // the original idea behind the channel was that it was best to return flags ASAP, and the
+        // channel allowed us to do that without waiting for later tests to finish. Now I'm not so
+        // convinced of its utility. Since we won't run the combi check to generate end user flags
+        // until the full pipeline is finished, it doesn't seem like the individual flags have any
+        // use before that point.
+        let (tx, rx) = channel(pipeline.steps.len());
         tokio::spawn(async move {
-            let mut children_completed_map: HashMap<NodeId, usize> = HashMap::new();
-            let mut test_futures = FuturesUnordered::new();
+            for step in pipeline.steps.iter() {
+                let result = harness::run_test(step, &data);
 
-            for leaf_index in subdag.leaves.clone().into_iter() {
-                test_futures.push(harness::run_test(
-                    subdag.nodes.get(leaf_index).unwrap().elem,
-                    &data,
-                ));
-            }
-
-            while let Some(res) = test_futures.next().await {
-                match tx.send(res.clone().map_err(Error::Runner)).await {
+                match tx.send(result.map_err(Error::Runner)).await {
                     Ok(_) => {
                         // item (server response) was queued to be send to client
                     }
@@ -117,33 +68,6 @@ impl<'a> Scheduler<'a> {
                         // output_stream was build from rx and both are dropped
                         break;
                     }
-                }
-
-                match res {
-                    Ok(inner) => {
-                        let completed_index = subdag.index_lookup.get(inner.test.as_str()).unwrap();
-
-                        for parent_index in
-                            subdag.nodes.get(*completed_index).unwrap().parents.iter()
-                        {
-                            let children_completed = children_completed_map
-                                .get(parent_index)
-                                .map(|x| x + 1)
-                                .unwrap_or(1);
-
-                            children_completed_map.insert(*parent_index, children_completed);
-
-                            if children_completed
-                                >= subdag.nodes.get(*parent_index).unwrap().children.len()
-                            {
-                                test_futures.push(harness::run_test(
-                                    subdag.nodes.get(*parent_index).unwrap().elem,
-                                    &data,
-                                ))
-                            }
-                        }
-                    }
-                    Err(_) => break,
                 }
             }
         });
@@ -185,12 +109,14 @@ impl<'a> Scheduler<'a> {
         _backing_sources: &[impl AsRef<str>],
         time_spec: &TimeSpec,
         space_spec: &SpaceSpec,
-        tests: &[impl AsRef<str>],
+        // TODO: should we allow specifying multiple pipelines per call?
+        test_pipeline: impl AsRef<str>,
         extra_spec: Option<&str>,
     ) -> Result<Receiver<Result<ValidateResponse, Error>>, Error> {
-        if tests.is_empty() {
-            return Err(Error::InvalidArg("must specify at least 1 test to be run"));
-        }
+        let pipeline = self
+            .pipelines
+            .get(test_pipeline.as_ref())
+            .ok_or(Error::InvalidArg("must specify at least 1 test to be run"))?;
 
         let data = match self
             .data_switch
@@ -198,7 +124,7 @@ impl<'a> Scheduler<'a> {
                 data_source.as_ref(),
                 space_spec,
                 time_spec,
-                // TODO: derive num_leading and num_trailing from test list
+                // TODO: derive num_leading and num_trailing from pipeline
                 1,
                 1,
                 extra_spec,
@@ -212,29 +138,8 @@ impl<'a> Scheduler<'a> {
             }
         };
 
-        let subdag = self.construct_subdag(tests)?;
-
-        Ok(Scheduler::schedule_tests(subdag, data))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::dev_utils::construct_fake_dag;
-
-    #[test]
-    fn test_construct_subdag() {
-        let rove_service = Scheduler::new(construct_fake_dag(), DataSwitch::new(HashMap::new()));
-
-        assert_eq!(rove_service.dag.count_edges(), 6);
-
-        let subdag = rove_service.construct_subdag(&vec!["test4"]).unwrap();
-
-        assert_eq!(subdag.count_edges(), 1);
-
-        let subdag = rove_service.construct_subdag(&vec!["test1"]).unwrap();
-
-        assert_eq!(subdag.count_edges(), 6);
+        // TODO: can probably get rid of this clone if we get rid of the channels in
+        // schedule_tests
+        Ok(Scheduler::schedule_tests(pipeline.clone(), data))
     }
 }

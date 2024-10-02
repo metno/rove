@@ -1,22 +1,21 @@
 use serde::Deserialize;
 use std::{collections::HashMap, path::Path};
 use thiserror::Error;
-use toml;
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct Pipeline {
-    steps: Vec<PipelineElement>,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct Pipeline {
+    pub steps: Vec<PipelineStep>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct PipelineElement {
-    name: String,
-    test: TestConf,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct PipelineStep {
+    pub name: String,
+    pub check: CheckConf,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
-enum TestConf {
+pub enum CheckConf {
     SpecialValueCheck(SpecialValueCheckConf),
     RangeCheck(RangeCheckConf),
     RangeCheckDynamic(RangeCheckDynamicConf),
@@ -26,72 +25,74 @@ enum TestConf {
     BuddyCheck(BuddyCheckConf),
     Sct(SctConf),
     ModelConsistencyCheck(ModelConsistencyCheckConf),
+    #[serde(skip)]
+    Dummy,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct SpecialValueCheckConf {
-    special_values: Vec<f32>,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct SpecialValueCheckConf {
+    pub special_values: Vec<f32>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct RangeCheckConf {
-    max: f32,
-    min: f32,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct RangeCheckConf {
+    pub max: f32,
+    pub min: f32,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct RangeCheckDynamicConf {
-    source: String,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct RangeCheckDynamicConf {
+    pub source: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct StepCheckConf {
-    max: f32,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct StepCheckConf {
+    pub max: f32,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct SpikeCheckConf {
-    max: f32,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct SpikeCheckConf {
+    pub max: f32,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct FlatlineCheckConf {
-    max: i32,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct FlatlineCheckConf {
+    pub max: i32,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct BuddyCheckConf {
-    radii: Vec<f32>,
-    nums_min: Vec<u32>,
-    threshold: f32,
-    max_elev_diff: f32,
-    elev_gradient: f32,
-    min_std: f32,
-    num_iterations: u32,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct BuddyCheckConf {
+    pub radii: Vec<f32>,
+    pub nums_min: Vec<u32>,
+    pub threshold: f32,
+    pub max_elev_diff: f32,
+    pub elev_gradient: f32,
+    pub min_std: f32,
+    pub num_iterations: u32,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct SctConf {
-    num_min: usize,
-    num_max: usize,
-    inner_radius: f32,
-    outer_radius: f32,
-    num_iterations: u32,
-    num_min_prof: usize,
-    min_elev_diff: f32,
-    min_horizontal_scale: f32,
-    vertical_scale: f32,
-    pos: Vec<f32>,
-    neg: Vec<f32>,
-    eps2: Vec<f32>,
-    obs_to_check: Option<Vec<bool>>,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct SctConf {
+    pub num_min: usize,
+    pub num_max: usize,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
+    pub num_iterations: u32,
+    pub num_min_prof: usize,
+    pub min_elev_diff: f32,
+    pub min_horizontal_scale: f32,
+    pub vertical_scale: f32,
+    pub pos: Vec<f32>,
+    pub neg: Vec<f32>,
+    pub eps2: Vec<f32>,
+    pub obs_to_check: Option<Vec<bool>>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct ModelConsistencyCheckConf {
-    model_source: String,
-    model_args: String,
-    threshold: f32,
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct ModelConsistencyCheckConf {
+    pub model_source: String,
+    pub model_args: String,
+    pub threshold: f32,
 }
 
 #[derive(Error, Debug)]
@@ -110,7 +111,10 @@ pub enum Error {
     InvalidFilename,
 }
 
-fn load_pipelines(path: impl AsRef<Path>) -> Result<HashMap<String, Pipeline>, Error> {
+/// Given a directory containing toml files that each define a check pipeline, construct a hashmap
+/// of pipelines, where the keys are the pipelines' names (filename of the toml file that defines
+/// them, without the file extension)
+pub fn load_pipelines(path: impl AsRef<Path>) -> Result<HashMap<String, Pipeline>, Error> {
     std::fs::read_dir(path)?
         // transform dir entries into (String, Pipeline) pairs
         .map(|entry| {

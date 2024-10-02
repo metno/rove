@@ -1,6 +1,7 @@
 use crate::{
     data_switch::DataCache,
     pb::{Flag, TestResult, ValidateResponse},
+    pipeline::{CheckConf, PipelineStep},
 };
 use chrono::prelude::*;
 use chronoutil::DateRule;
@@ -17,19 +18,18 @@ pub enum Error {
     UnknownFlag(String),
 }
 
-pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse, Error> {
-    let flags: Vec<(String, Vec<Flag>)> = match test {
-        // TODO: put these in a lookup table?
-        "dip_check" => {
+pub fn run_test(step: &PipelineStep, cache: &DataCache) -> Result<ValidateResponse, Error> {
+    let step_name = step.name.to_string();
+
+    let flags: Vec<(String, Vec<Flag>)> = match &step.check {
+        CheckConf::SpikeCheck(conf) => {
             const LEADING_PER_RUN: u8 = 1;
             const TRAILING_PER_RUN: u8 = 1;
 
-            // TODO: use actual test params
             // TODO: use par_iter?
 
             let mut result_vec = Vec::with_capacity(cache.data.len());
 
-            // NOTE: Does data in each series have the same len?
             let series_len = cache.data[0].1.len();
 
             for i in 0..cache.data.len() {
@@ -39,7 +39,9 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                         ..(series_len - (cache.num_trailing_points - TRAILING_PER_RUN) as usize)]
                         .windows((LEADING_PER_RUN + 1 + TRAILING_PER_RUN).into())
                         .map(|window| {
-                            olympian::dip_check(window, 2., 3.)?
+                            // TODO: the "high" param is hardcoded for now, but should be removed
+                            // from olympian
+                            olympian::dip_check(window, 2., conf.max)?
                                 .try_into()
                                 .map_err(Error::UnknownFlag)
                         })
@@ -48,7 +50,7 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
             }
             result_vec
         }
-        "step_check" => {
+        CheckConf::StepCheck(conf) => {
             const LEADING_PER_RUN: u8 = 1;
             const TRAILING_PER_RUN: u8 = 0;
 
@@ -64,7 +66,9 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                         ..(series_len - (cache.num_trailing_points - TRAILING_PER_RUN) as usize)]
                         .windows((LEADING_PER_RUN + 1).into())
                         .map(|window| {
-                            olympian::step_check(window, 2., 3.)?
+                            // TODO: the "high" param is hardcoded for now, but should be removed
+                            // from olympian
+                            olympian::step_check(window, 2., conf.max)?
                                 .try_into()
                                 .map_err(Error::UnknownFlag)
                         })
@@ -73,7 +77,7 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
             }
             result_vec
         }
-        "buddy_check" => {
+        CheckConf::BuddyCheck(conf) => {
             let n = cache.data.len();
 
             let series_len = cache.data[0].1.len();
@@ -93,13 +97,14 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
                 let spatial_result = olympian::buddy_check(
                     &cache.rtree,
                     &inner,
-                    &vec![5000.; n],
-                    &vec![2; n],
-                    2.,
-                    200.,
-                    0.,
-                    1.,
-                    2,
+                    &conf.radii,         // &vec![5000.; n],
+                    &conf.nums_min,      // &vec![2; n],
+                    conf.threshold,      // 2.,
+                    conf.max_elev_diff,  // 200.,
+                    conf.elev_gradient,  // 0.,
+                    conf.min_std,        // 1.,
+                    conf.num_iterations, // 2,
+                    // TODO: should we be setting this dynamically? from where?
                     &vec![true; n],
                 )?;
 
@@ -109,8 +114,12 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
             }
             result_vec
         }
-        "sct" => {
-            let n = cache.data.len();
+        CheckConf::Sct(conf) => {
+            // TODO: evaluate whether we will need this to extend param vectors from conf
+            // if the checks accept single values (which they should) then we don't need this.
+            // anyway I think if we have dynamic values for these we can match them to the data
+            // when fetching them.
+            // let _n = cache.data.len();
 
             let series_len = cache.data[0].1.len();
 
@@ -125,21 +134,22 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
             {
                 // TODO: change `sct` to accept Option<f32>?
                 let inner: Vec<f32> = cache.data.iter().map(|v| v.1[i].unwrap()).collect();
+                // TODO: make it so olympian can accept the conf as one param?
                 let spatial_result = olympian::sct(
                     &cache.rtree,
                     &inner,
-                    5,
-                    100,
-                    50000.,
-                    150000.,
-                    5,
-                    20,
-                    200.,
-                    10000.,
-                    200.,
-                    &vec![4.; n],
-                    &vec![8.; n],
-                    &vec![0.5; n],
+                    conf.num_min,              // 5,
+                    conf.num_max,              // 100,
+                    conf.inner_radius,         // 50000.,
+                    conf.outer_radius,         // 150000.,
+                    conf.num_iterations,       // 5,
+                    conf.num_min_prof,         // 20,
+                    conf.min_elev_diff,        // 200.,
+                    conf.min_horizontal_scale, // 10000.,
+                    conf.vertical_scale,       // 200.,
+                    &conf.pos,                 // &vec![4.; n],
+                    &conf.neg,                 // &vec![8.; n],
+                    &conf.eps2,                // &vec![0.5; n],
                     None,
                 )?;
 
@@ -151,10 +161,10 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
         }
         _ => {
             // used for integration testing
-            if test.starts_with("test") {
+            if step_name.starts_with("test") {
                 vec![("test".to_string(), vec![Flag::Inconclusive])]
             } else {
-                return Err(Error::InvalidTestName(test.to_string()));
+                return Err(Error::InvalidTestName(step_name.clone()));
             }
         }
     };
@@ -184,7 +194,7 @@ pub async fn run_test(test: &str, cache: &DataCache) -> Result<ValidateResponse,
         .collect();
 
     Ok(ValidateResponse {
-        test: test.to_string(),
+        test: step_name,
         results,
     })
 }

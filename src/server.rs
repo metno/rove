@@ -1,16 +1,16 @@
 use crate::{
-    dag::Dag,
     data_switch::{DataSwitch, GeoPoint, SpaceSpec, TimeSpec, Timerange, Timestamp},
     pb::{
         self,
         rove_server::{Rove, RoveServer},
         ValidateRequest, ValidateResponse,
     },
+    pipeline::Pipeline,
     scheduler::{self, Scheduler},
 };
 use chronoutil::RelativeDuration;
 use futures::Stream;
-use std::{net::SocketAddr, pin::Pin};
+use std::{collections::HashMap, net::SocketAddr, pin::Pin};
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::{ReceiverStream, UnixListenerStream};
 use tonic::{transport::Server, Request, Response, Status};
@@ -52,7 +52,6 @@ impl Rove for Scheduler<'static> {
         tracing::debug!("Got a request: {:?}", request);
 
         let req = request.into_inner();
-        let req_len = req.tests.len();
 
         let time_spec = TimeSpec {
             timerange: Timerange {
@@ -96,14 +95,17 @@ impl Rove for Scheduler<'static> {
                 &req.backing_sources,
                 &time_spec,
                 &space_spec,
-                &req.tests,
+                &req.pipeline,
                 req.extra_spec.as_deref(),
             )
             .await
             .map_err(Into::<Status>::into)?;
 
+        // this unwrap is fine because validate_direct already checked the hashmap entry exists
+        let pipeline_len = self.pipelines.get(&req.pipeline).unwrap().steps.len();
+
         // TODO: remove this channel chaining once async iterators drop
-        let (tx_final, rx_final) = channel(req_len);
+        let (tx_final, rx_final) = channel(pipeline_len);
         tokio::spawn(async move {
             while let Some(i) = rx.recv().await {
                 match tx_final.send(i.map_err(|e| e.into())).await {
@@ -128,9 +130,9 @@ impl Rove for Scheduler<'static> {
 async fn start_server_inner(
     listener: ListenerType,
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    pipelines: HashMap<String, Pipeline>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let rove_service = Scheduler::new(dag, data_switch);
+    let rove_service = Scheduler::new(pipelines, data_switch);
 
     match listener {
         ListenerType::Addr(addr) => {
@@ -159,9 +161,9 @@ async fn start_server_inner(
 pub async fn start_server_unix_listener(
     stream: UnixListenerStream,
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    pipelines: HashMap<String, Pipeline>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    start_server_inner(ListenerType::UnixListener(stream), data_switch, dag).await
+    start_server_inner(ListenerType::UnixListener(stream), data_switch, pipelines).await
 }
 
 /// Starts up a gRPC server to process QC run requests
@@ -172,7 +174,7 @@ pub async fn start_server_unix_listener(
 pub async fn start_server(
     addr: SocketAddr,
     data_switch: DataSwitch<'static>,
-    dag: Dag<&'static str>,
+    pipelines: HashMap<String, Pipeline>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    start_server_inner(ListenerType::Addr(addr), data_switch, dag).await
+    start_server_inner(ListenerType::Addr(addr), data_switch, pipelines).await
 }
