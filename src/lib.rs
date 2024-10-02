@@ -9,7 +9,7 @@
 //! use rove::{
 //!     start_server,
 //!     data_switch::{DataSwitch, DataConnector},
-//!     dev_utils::{TestDataSource, construct_hardcoded_dag},
+//!     dev_utils::{TestDataSource, construct_hardcoded_pipeline},
 //! };
 //! use std::collections::HashMap;
 //!
@@ -26,7 +26,7 @@
 //!     start_server(
 //!         "[::1]:1337".parse()?,
 //!         data_switch,
-//!         construct_hardcoded_dag(),
+//!         construct_hardcoded_pipeline(),
 //!     )
 //!     .await
 //! }
@@ -37,7 +37,7 @@
 //! use rove::{
 //!     Scheduler,
 //!     data_switch::{DataSwitch, DataConnector, Timestamp, Timerange, TimeSpec, SpaceSpec},
-//!     dev_utils::{TestDataSource, construct_hardcoded_dag},
+//!     dev_utils::{TestDataSource, construct_hardcoded_pipeline},
 //! };
 //! use std::collections::HashMap;
 //! use chrono::{Utc, TimeZone};
@@ -53,7 +53,7 @@
 //!         } as &dyn DataConnector),
 //!     ]));
 //!
-//!     let rove_scheduler = Scheduler::new(construct_hardcoded_dag(), data_switch);
+//!     let rove_scheduler = Scheduler::new(construct_hardcoded_pipeline(), data_switch);
 //!
 //!     let mut rx = rove_scheduler.validate_direct(
 //!         "my_data_source",
@@ -72,7 +72,7 @@
 //!             RelativeDuration::minutes(5),
 //!         ),
 //!         &SpaceSpec::One(String::from("station_id")),
-//!         &["dip_check", "step_check"],
+//!         "TA_PT1H",
 //!         None,
 //!     ).await?;
 //!
@@ -101,7 +101,7 @@ mod pipeline;
 mod scheduler;
 mod server;
 
-pub use pipeline::load_pipelines;
+pub use pipeline::{load_pipelines, Pipeline};
 
 pub use scheduler::Scheduler;
 
@@ -135,11 +135,11 @@ pub(crate) mod pb {
 pub mod dev_utils {
     use crate::{
         data_switch::{self, DataCache, DataConnector, SpaceSpec, TimeSpec, Timestamp},
-        pipeline::{CheckConf, Pipeline, PipelineStep},
+        pipeline::Pipeline,
     };
     use async_trait::async_trait;
     use chronoutil::RelativeDuration;
-    use std::hint::black_box;
+    use std::{collections::HashMap, hint::black_box};
 
     #[derive(Debug)]
     pub struct TestDataSource {
@@ -212,38 +212,54 @@ pub mod dev_utils {
         }
     }
 
-    pub fn construct_fake_pipeline() -> Pipeline {
-        Pipeline {
-            steps: vec![
-                PipelineStep {
-                    name: "test1".to_string(),
-                    check: CheckConf::Dummy,
-                },
-                PipelineStep {
-                    name: "test2".to_string(),
-                    check: CheckConf::Dummy,
-                },
-                PipelineStep {
-                    name: "test3".to_string(),
-                    check: CheckConf::Dummy,
-                },
-                PipelineStep {
-                    name: "test4".to_string(),
-                    check: CheckConf::Dummy,
-                },
-                PipelineStep {
-                    name: "test5".to_string(),
-                    check: CheckConf::Dummy,
-                },
-                PipelineStep {
-                    name: "test6".to_string(),
-                    check: CheckConf::Dummy,
-                },
-            ],
-        }
-    }
-
     // TODO: replace this by just loading a sample pipeline toml?
+    pub fn construct_hardcoded_pipeline() -> HashMap<String, Pipeline> {
+        HashMap::from([(
+            String::from("hardcoded"),
+            toml::from_str(
+                r#"
+                    [[steps]]
+                    name = "step_check"
+                    [steps.check.step_check]
+                    max = 3.0
+
+                    [[steps]]
+                    name = "spike_check"
+                    [steps.check.spike_check]
+                    max = 3.0
+
+                    [[steps]]
+                    name = "buddy_check"
+                    [steps.check.buddy_check]
+                    max = 3
+                    radii = [5000.0]
+                    nums_min = [2]
+                    threshold = 2.0
+                    max_elev_diff = 200.0
+                    elev_gradient = 0.0
+                    min_std = 1.0
+                    num_iterations =  2
+                
+                    [[steps]]
+                    name = "sct"
+                    [steps.check.sct]
+                    num_min = 5
+                    num_max = 100
+                    inner_radius = 50000.0
+                    outer_radius = 150000.0
+                    num_iterations = 5
+                    num_min_prof = 20
+                    min_elev_diff = 200.0
+                    min_horizontal_scale = 10000.0
+                    vertical_scale = 200.0
+                    pos = [4.0]
+                    neg = [8.0]
+                    eps2 = [0.5]
+            "#,
+            )
+            .unwrap(),
+        )])
+    }
     // pub fn construct_hardcoded_dag() -> Dag<&'static str> {
     //     let mut dag: Dag<&'static str> = Dag::new();
 

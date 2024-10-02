@@ -2,8 +2,13 @@ use serde::Deserialize;
 use std::{collections::HashMap, path::Path};
 use thiserror::Error;
 
+/// Data structure defining a pipeline of checks, with parameters built in
+///
+/// Rather than constructing these manually, a convenience function `load_pipelines` is provided
+/// to deserialize a set of pipelines from a directory containing TOML files defining them.
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct Pipeline {
+    /// Sequence of steps in the pipeline
     pub steps: Vec<PipelineStep>,
 }
 
