@@ -55,8 +55,8 @@ message ValidateRequest {
     // no spatial restriction at all
     google.protobuf.Empty all = 8;
   }
-  // list of the names of tests to be run on the data
-  repeated string tests = 9;
+  // name of the pipeline of checks to be run on the data
+  string pipeline = 9;
   // optional string containing extra information to be passed to the data
   // connector, to further specify the data to be QCed
   optional string extra_spec = 10;
