@@ -12,7 +12,7 @@ use thiserror::Error;
 pub enum Error {
     #[error("test name {0} not found in runner")]
     InvalidTestName(String),
-    #[error("failed to run test")]
+    #[error("failed to run test: {0}")]
     FailedTest(#[from] olympian::Error),
     #[error("unknown olympian flag: {0}")]
     UnknownFlag(String),
@@ -119,7 +119,7 @@ pub fn run_test(step: &PipelineStep, cache: &DataCache) -> Result<ValidateRespon
             // if the checks accept single values (which they should) then we don't need this.
             // anyway I think if we have dynamic values for these we can match them to the data
             // when fetching them.
-            // let _n = cache.data.len();
+            let n = cache.data.len();
 
             let series_len = cache.data[0].1.len();
 
@@ -147,9 +147,11 @@ pub fn run_test(step: &PipelineStep, cache: &DataCache) -> Result<ValidateRespon
                     conf.min_elev_diff,        // 200.,
                     conf.min_horizontal_scale, // 10000.,
                     conf.vertical_scale,       // 200.,
-                    &conf.pos,                 // &vec![4.; n],
-                    &conf.neg,                 // &vec![8.; n],
-                    &conf.eps2,                // &vec![0.5; n],
+                    // TODO: we shouldn't need to extend these vectors, it should be handled
+                    // better in olympian
+                    &vec![conf.pos[0]; n],  // &vec![4.; n],
+                    &vec![conf.neg[0]; n],  // &vec![8.; n],
+                    &vec![conf.eps2[0]; n], // &vec![0.5; n],
                     None,
                 )?;
 
