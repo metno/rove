@@ -135,7 +135,7 @@ pub(crate) mod pb {
 pub mod dev_utils {
     use crate::{
         data_switch::{self, DataCache, DataConnector, SpaceSpec, TimeSpec, Timestamp},
-        pipeline::Pipeline,
+        pipeline::{derive_num_leading_trailing, Pipeline},
     };
     use async_trait::async_trait;
     use chronoutil::RelativeDuration;
@@ -214,10 +214,8 @@ pub mod dev_utils {
 
     // TODO: replace this by just loading a sample pipeline toml?
     pub fn construct_hardcoded_pipeline() -> HashMap<String, Pipeline> {
-        HashMap::from([(
-            String::from("hardcoded"),
-            toml::from_str(
-                r#"
+        let mut pipeline = toml::from_str(
+            r#"
                     [[steps]]
                     name = "step_check"
                     [steps.check.step_check]
@@ -256,18 +254,13 @@ pub mod dev_utils {
                     neg = [8.0]
                     eps2 = [0.5]
             "#,
-            )
-            .unwrap(),
-        )])
+        )
+        .unwrap();
+        (
+            pipeline.num_leading_required,
+            pipeline.num_trailing_required,
+        ) = derive_num_leading_trailing(&pipeline);
+
+        HashMap::from([(String::from("hardcoded"), pipeline)])
     }
-    // pub fn construct_hardcoded_dag() -> Dag<&'static str> {
-    //     let mut dag: Dag<&'static str> = Dag::new();
-
-    //     dag.add_node("dip_check");
-    //     dag.add_node("step_check");
-    //     dag.add_node("buddy_check");
-    //     dag.add_node("sct");
-
-    //     dag
-    // }
 }

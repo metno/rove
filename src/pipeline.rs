@@ -10,6 +10,12 @@ use thiserror::Error;
 pub struct Pipeline {
     /// Sequence of steps in the pipeline
     pub steps: Vec<PipelineStep>,
+    /// Minimum number of leading points required by all the tests in this pipeline
+    #[serde(skip)]
+    pub num_leading_required: u8,
+    /// Minimum number of trailing points required by all the tests in this pipeline
+    #[serde(skip)]
+    pub num_trailing_required: u8,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
@@ -62,7 +68,7 @@ pub struct SpikeCheckConf {
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct FlatlineCheckConf {
-    pub max: i32,
+    pub max: u8,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
@@ -116,6 +122,29 @@ pub enum Error {
     InvalidFilename,
 }
 
+/// Given a pipeline, derive the number of leading and trailing points per timeseries needed in
+/// a dataset, for all the intended data to be QCed by the pipeline
+pub fn derive_num_leading_trailing(pipeline: &Pipeline) -> (u8, u8) {
+    // TODO: would there be somewhere better for this match to live?
+    // perhaps harness or even olympian, but annoyingly it depends on things in this module
+    pipeline
+        .steps
+        .iter()
+        .map(|step| match &step.check {
+            CheckConf::SpecialValueCheck(_) => (0, 0),
+            CheckConf::RangeCheck(_) => (0, 0),
+            CheckConf::RangeCheckDynamic(_) => (0, 0),
+            CheckConf::StepCheck(_) => (1, 0),
+            CheckConf::SpikeCheck(_) => (1, 1),
+            CheckConf::FlatlineCheck(conf) => (conf.max, 0),
+            CheckConf::BuddyCheck(_) => (0, 0),
+            CheckConf::Sct(_) => (0, 0),
+            CheckConf::ModelConsistencyCheck(_) => (0, 0),
+            CheckConf::Dummy => (0, 0),
+        })
+        .fold((0, 0), |acc, x| (acc.0.max(x.0), acc.1.max(x.1)))
+}
+
 /// Given a directory containing toml files that each define a check pipeline, construct a hashmap
 /// of pipelines, where the keys are the pipelines' names (filename of the toml file that defines
 /// them, without the file extension)
@@ -134,9 +163,14 @@ pub fn load_pipelines(path: impl AsRef<Path>) -> Result<HashMap<String, Pipeline
                 .ok_or(Error::InvalidFilename)?
                 .trim_end_matches(".toml")
                 .to_string();
-            let elems = toml::from_str(&std::fs::read_to_string(entry.path())?)?;
 
-            Ok(Some((name, elems)))
+            let mut pipeline = toml::from_str(&std::fs::read_to_string(entry.path())?)?;
+            (
+                pipeline.num_leading_required,
+                pipeline.num_trailing_required,
+            ) = derive_num_leading_trailing(&pipeline);
+
+            Ok(Some((name, pipeline)))
         })
         // remove `None`s
         .filter_map(Result::transpose)

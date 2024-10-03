@@ -88,19 +88,15 @@ async fn integration_test_hardcoded_pipeline() {
             match inner.test.as_ref() {
                 "spike_check" => {
                     spike_recv_count += 1;
-                    println!("spike_check done");
                 }
                 "step_check" => {
                     step_recv_count += 1;
-                    println!("step_check done");
                 }
                 "buddy_check" => {
                     buddy_recv_count += 1;
-                    println!("buddy_check done");
                 }
                 "sct" => {
                     sct_recv_count += 1;
-                    println!("sct done");
                 }
                 _ => {
                     panic!("unrecognised test name returned")

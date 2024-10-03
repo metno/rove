@@ -124,9 +124,8 @@ impl<'a> Scheduler<'a> {
                 data_source.as_ref(),
                 space_spec,
                 time_spec,
-                // TODO: derive num_leading and num_trailing from pipeline
-                1,
-                1,
+                pipeline.num_leading_required,
+                pipeline.num_trailing_required,
                 extra_spec,
             )
             .await
