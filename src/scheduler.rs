@@ -12,8 +12,6 @@ use tokio::sync::mpsc::{channel, Receiver};
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
-    #[error("test name {0} not found in dag")]
-    TestNotInDag(String),
     #[error("failed to run test: {0}")]
     Runner(#[from] harness::Error),
     #[error("invalid argument: {0}")]
@@ -85,17 +83,17 @@ impl<'a> Scheduler<'a> {
     /// `time_spec` and `space_spec` narrow down what data to QC, more info
     /// on what these mean and how to construct them can be found on their
     /// own doc pages.
+    /// `test_pipeline` represents the pipeline of checks to be run. Available
+    /// options of pipelines are defined at load time for the service, where
+    /// pipelines are read from toml files.
     /// `extra_spec` is an extra identifier that gets passed to the relevant
     /// DataConnector. The format of `extra_spec` is connector-specific.
-    ///
-    /// `tests` represents the QC tests to be run. Any tests these depend on
-    /// will be found via the [`DAG`](Dag), and run as well.
     ///
     /// # Errors
     ///
     /// Returned from the function if:
-    /// - The provided test array is empty
-    /// - A test in the provided array did not have a matching entry in the DAG
+    /// - The pipeline named by in the `test_pipeline` argument is not recognized
+    ///   by the system
     /// - The data_source string did not have a matching entry in the
     ///   Scheduler's DataSwitch
     ///
@@ -116,7 +114,7 @@ impl<'a> Scheduler<'a> {
         let pipeline = self
             .pipelines
             .get(test_pipeline.as_ref())
-            .ok_or(Error::InvalidArg("must specify at least 1 test to be run"))?;
+            .ok_or(Error::InvalidArg("pipeline not recognised"))?;
 
         let data = match self
             .data_switch
