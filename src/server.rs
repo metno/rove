@@ -26,9 +26,6 @@ enum ListenerType {
 impl From<scheduler::Error> for Status {
     fn from(item: scheduler::Error) -> Self {
         match item {
-            scheduler::Error::TestNotInDag(s) => {
-                Status::not_found(format!("test name `{}` not found in dag", s))
-            }
             scheduler::Error::InvalidArg(s) => {
                 Status::invalid_argument(format!("invalid argument: {}", s))
             }
@@ -169,8 +166,8 @@ pub async fn start_server_unix_listener(
 /// Starts up a gRPC server to process QC run requests
 ///
 /// Takes a [socket address](std::net::SocketAddr) to listen on, a
-/// [data switch](DataSwitch) to provide access to data sources,
-/// and a [dag](Dag) to encode dependencies between tests
+/// [data switch](DataSwitch) to provide access to data sources, and a hashmap
+/// of pipelines of checks that can be run on data, keyed by their names.
 pub async fn start_server(
     addr: SocketAddr,
     data_switch: DataSwitch<'static>,
