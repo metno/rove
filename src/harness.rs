@@ -166,7 +166,7 @@ pub fn run_test(step: &PipelineStep, cache: &DataCache) -> Result<ValidateRespon
             if step_name.starts_with("test") {
                 vec![("test".to_string(), vec![Flag::Inconclusive])]
             } else {
-                return Err(Error::InvalidTestName(step_name.clone()));
+                return Err(Error::InvalidTestName(step_name));
             }
         }
     };
