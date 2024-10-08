@@ -10,10 +10,10 @@ use thiserror::Error;
 pub struct Pipeline {
     /// Sequence of steps in the pipeline
     pub steps: Vec<PipelineStep>,
-    /// Minimum number of leading points required by all the tests in this pipeline
+    /// Number of leading points required by the checks in this pipeline
     #[serde(skip)]
     pub num_leading_required: u8,
-    /// Minimum number of trailing points required by all the tests in this pipeline
+    /// Number of trailing points required by the checks in this pipeline
     #[serde(skip)]
     pub num_trailing_required: u8,
 }
@@ -125,8 +125,6 @@ pub enum Error {
 /// Given a pipeline, derive the number of leading and trailing points per timeseries needed in
 /// a dataset, for all the intended data to be QCed by the pipeline
 pub fn derive_num_leading_trailing(pipeline: &Pipeline) -> (u8, u8) {
-    // TODO: would there be somewhere better for this match to live?
-    // perhaps harness or even olympian, but annoyingly it depends on things in this module
     pipeline
         .steps
         .iter()
