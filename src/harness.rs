@@ -7,6 +7,11 @@ use chrono::prelude::*;
 use chronoutil::DateRule;
 use thiserror::Error;
 
+pub const SPIKE_LEADING_PER_RUN: u8 = 1;
+pub const SPIKE_TRAILING_PER_RUN: u8 = 1;
+pub const STEP_LEADING_PER_RUN: u8 = 1;
+pub const STEP_TRAILING_PER_RUN: u8 = 0;
+
 #[derive(Error, Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
@@ -23,8 +28,8 @@ pub fn run_test(step: &PipelineStep, cache: &DataCache) -> Result<ValidateRespon
 
     let flags: Vec<(String, Vec<Flag>)> = match &step.check {
         CheckConf::SpikeCheck(conf) => {
-            const LEADING_PER_RUN: u8 = 1;
-            const TRAILING_PER_RUN: u8 = 1;
+            const LEADING_PER_RUN: u8 = SPIKE_LEADING_PER_RUN;
+            const TRAILING_PER_RUN: u8 = SPIKE_TRAILING_PER_RUN;
 
             // TODO: use par_iter?
 
@@ -51,8 +56,8 @@ pub fn run_test(step: &PipelineStep, cache: &DataCache) -> Result<ValidateRespon
             result_vec
         }
         CheckConf::StepCheck(conf) => {
-            const LEADING_PER_RUN: u8 = 1;
-            const TRAILING_PER_RUN: u8 = 0;
+            const LEADING_PER_RUN: u8 = STEP_LEADING_PER_RUN;
+            const TRAILING_PER_RUN: u8 = STEP_TRAILING_PER_RUN;
 
             let mut result_vec = Vec::with_capacity(cache.data.len());
 
