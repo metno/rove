@@ -1,3 +1,6 @@
+use crate::harness::{
+    SPIKE_LEADING_PER_RUN, SPIKE_TRAILING_PER_RUN, STEP_LEADING_PER_RUN, STEP_TRAILING_PER_RUN,
+};
 use serde::Deserialize;
 use std::{collections::HashMap, path::Path};
 use thiserror::Error;
@@ -38,6 +41,23 @@ pub enum CheckConf {
     ModelConsistencyCheck(ModelConsistencyCheckConf),
     #[serde(skip)]
     Dummy,
+}
+
+impl CheckConf {
+    fn get_num_leading_trailing(&self) -> (u8, u8) {
+        match self {
+            CheckConf::SpecialValueCheck(_)
+            | CheckConf::RangeCheck(_)
+            | CheckConf::RangeCheckDynamic(_)
+            | CheckConf::BuddyCheck(_)
+            | CheckConf::Sct(_)
+            | CheckConf::ModelConsistencyCheck(_)
+            | CheckConf::Dummy => (0, 0),
+            CheckConf::StepCheck(_) => (STEP_LEADING_PER_RUN, STEP_TRAILING_PER_RUN),
+            CheckConf::SpikeCheck(_) => (SPIKE_LEADING_PER_RUN, SPIKE_TRAILING_PER_RUN),
+            CheckConf::FlatlineCheck(conf) => (conf.max, 0),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
@@ -128,18 +148,7 @@ pub fn derive_num_leading_trailing(pipeline: &Pipeline) -> (u8, u8) {
     pipeline
         .steps
         .iter()
-        .map(|step| match &step.check {
-            CheckConf::SpecialValueCheck(_) => (0, 0),
-            CheckConf::RangeCheck(_) => (0, 0),
-            CheckConf::RangeCheckDynamic(_) => (0, 0),
-            CheckConf::StepCheck(_) => (1, 0),
-            CheckConf::SpikeCheck(_) => (1, 1),
-            CheckConf::FlatlineCheck(conf) => (conf.max, 0),
-            CheckConf::BuddyCheck(_) => (0, 0),
-            CheckConf::Sct(_) => (0, 0),
-            CheckConf::ModelConsistencyCheck(_) => (0, 0),
-            CheckConf::Dummy => (0, 0),
-        })
+        .map(|step| step.check.get_num_leading_trailing())
         .fold((0, 0), |acc, x| (acc.0.max(x.0), acc.1.max(x.1)))
 }
 
