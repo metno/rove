@@ -25,6 +25,7 @@ pub struct Pipeline {
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct PipelineStep {
     pub name: String,
+    #[serde(flatten)]
     pub check: CheckConf,
 }
 

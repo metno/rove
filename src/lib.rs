@@ -218,17 +218,17 @@ pub mod dev_utils {
             r#"
                     [[step]]
                     name = "step_check"
-                    [step.check.step_check]
+                    [step.step_check]
                     max = 3.0
 
                     [[step]]
                     name = "spike_check"
-                    [step.check.spike_check]
+                    [step.spike_check]
                     max = 3.0
 
                     [[step]]
                     name = "buddy_check"
-                    [step.check.buddy_check]
+                    [step.buddy_check]
                     max = 3
                     radii = [5000.0]
                     nums_min = [2]
@@ -240,7 +240,7 @@ pub mod dev_utils {
                 
                     [[step]]
                     name = "sct"
-                    [step.check.sct]
+                    [step.sct]
                     num_min = 5
                     num_max = 100
                     inner_radius = 50000.0
