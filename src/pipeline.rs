@@ -12,6 +12,7 @@ use thiserror::Error;
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct Pipeline {
     /// Sequence of steps in the pipeline
+    #[serde(rename = "step")]
     pub steps: Vec<PipelineStep>,
     /// Number of leading points required by the checks in this pipeline
     #[serde(skip)]

@@ -216,19 +216,19 @@ pub mod dev_utils {
     pub fn construct_hardcoded_pipeline() -> HashMap<String, Pipeline> {
         let mut pipeline = toml::from_str(
             r#"
-                    [[steps]]
+                    [[step]]
                     name = "step_check"
-                    [steps.check.step_check]
+                    [step.check.step_check]
                     max = 3.0
 
-                    [[steps]]
+                    [[step]]
                     name = "spike_check"
-                    [steps.check.spike_check]
+                    [step.check.spike_check]
                     max = 3.0
 
-                    [[steps]]
+                    [[step]]
                     name = "buddy_check"
-                    [steps.check.buddy_check]
+                    [step.check.buddy_check]
                     max = 3
                     radii = [5000.0]
                     nums_min = [2]
@@ -238,9 +238,9 @@ pub mod dev_utils {
                     min_std = 1.0
                     num_iterations =  2
                 
-                    [[steps]]
+                    [[step]]
                     name = "sct"
-                    [steps.check.sct]
+                    [step.check.sct]
                     num_min = 5
                     num_max = 100
                     inner_radius = 50000.0
