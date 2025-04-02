@@ -4,6 +4,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // back to the commented version once they update their protoc
     tonic_build::configure()
         .protoc_arg("--experimental_allow_proto3_optional")
-        .compile(&["proto/rove.proto"], &["proto"])?;
+        .compile_protos(&["proto/rove.proto"], &["proto"])?;
     Ok(())
 }

@@ -1,4 +1,5 @@
 use core::future::Future;
+use hyper_util::rt::TokioIo;
 use pb::{rove_client::RoveClient, validate_request::SpaceSpec, Flag, ValidateRequest};
 use rove::{
     data_switch::{DataConnector, DataSwitch},
@@ -34,14 +35,17 @@ pub async fn set_up_rove(
             .unwrap();
     };
 
-    let coordinator_channel = Endpoint::try_from("http://any.url")
-        .unwrap()
-        .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
-            let socket = Arc::clone(&coordinator_socket);
-            async move { UnixStream::connect(&*socket).await }
-        }))
-        .await
-        .unwrap();
+    let coordinator_channel =
+        Endpoint::try_from("http://any.url")
+            .unwrap()
+            .connect_with_connector(service_fn(move |_: tonic::transport::Uri| {
+                let socket = Arc::clone(&coordinator_socket);
+                async move {
+                    Ok::<_, std::io::Error>(TokioIo::new(UnixStream::connect(&*socket).await?))
+                }
+            }))
+            .await
+            .unwrap();
     let client = RoveClient::new(coordinator_channel);
 
     (coordinator_future, client)
