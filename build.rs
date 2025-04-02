@@ -1,4 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    std::env::set_var("PROTOC", protobuf_src::protoc());
     // tonic_build::compile_protos("proto/rove.proto")?;
     // needed the extra flag to make docs.rs happy :(. we can probably switch
     // back to the commented version once they update their protoc
