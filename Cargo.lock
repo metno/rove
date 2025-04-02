@@ -1495,9 +1495,9 @@ dependencies = [
 
 [[package]]
 name = "olympian"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8d573239af0903c9345eb11c422ee4f74156a9a5ac5d4ea448602a08c033701"
+checksum = "abd709de9a1fb029defeb21110b58db3566368dcb0fb05b64378e95a3b777013"
 dependencies = [
  "chronoutil",
  "faer",
