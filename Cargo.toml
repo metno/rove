@@ -17,8 +17,8 @@ keywords = ["qc", "quality_control", "weather", "meteorology", "climate"]
 categories = ["science::geo"]
 
 [workspace.dependencies]
-tonic = "0.13.0"
-tokio = { version = "1.44.2", features = ["full"] }
+tonic = "0.13.1"
+tokio = { version = "1.45.1", features = ["full"] }
 prost = "0.13.5"
 prost-types = "0.13.5"
 olympian = "0.5.1"
@@ -26,21 +26,21 @@ tracing = "0.1.16"
 tracing-subscriber = { version = "0.3", features = ["tracing-log"] }
 futures = "0.3.31"
 tokio-stream = { version = "0.1.17", features = ["net"] }
-tempfile = "3.10.1"
+tempfile = "3.20.0"
 tower = { version = "0.5.2", features = ["util"] }
 thiserror = "2.0.12"
 chrono = "0.4.41"
 chronoutil = "0.2.7"
 async-trait = "0.1.88"
-tonic-build = "0.13.0"
-clap = { version = "4.5.37", features = ["derive"] }
+tonic-build = "0.13.1"
+clap = { version = "4.5.39", features = ["derive"] }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
 serde_json = "1.0.140"
 serde = { version = "1.0.219", features = ["derive"] }
 reqwest = { version = "0.11", features = ["json"] }
 csv = "1.3.1"
 toml = "0.8.22"
-hyper-util = "0.1.11"
+hyper-util = "0.1.13"
 protobuf-src = "2.1.1"
 
 [package]
