@@ -16,7 +16,7 @@ impl TryFrom<olympian::Flag> for Flag {
             olympian::Flag::Invalid => Ok(Self::Invalid),
             olympian::Flag::DataMissing => Ok(Self::DataMissing),
             olympian::Flag::Isolated => Ok(Self::Isolated),
-            _ => Err(format!("{:?}", item)),
+            _ => Err(format!("{item:?}")),
         }
     }
 }
@@ -31,7 +31,7 @@ impl TryFrom<data_switch::Timeseries<olympian::Flag>> for FlagSeries {
             .map(|flag| {
                 let flag: Flag = flag
                     .try_into()
-                    .map_err(|e| format!("unrecognized flag: {:?}", e))?;
+                    .map_err(|e| format!("unrecognized flag: {e:?}"))?;
                 Ok(flag.into())
             })
             .collect::<Result<Vec<i32>, String>>()?;

@@ -17,7 +17,7 @@ fn get_terminated(input: &str, terminator: char) -> Result<(&str, i32), Error> {
     if let Some((int_string, remainder)) = input.split_once(terminator) {
         let int = int_string
             .parse::<i32>()
-            .map_err(|_| Error::Parse(format!("{} is not a valid i32", int_string)))?;
+            .map_err(|_| Error::Parse(format!("{int_string} is not a valid i32")))?;
         Ok((remainder, int))
     } else {
         Ok((input, 0))
@@ -31,8 +31,7 @@ fn parse_datespec(datespec: &str) -> Result<(i32, i32, i32), Error> {
 
     if !remainder.is_empty() {
         Err(Error::Parse(format!(
-            "trailing characters: {} in datespec: {}",
-            remainder, datespec
+            "trailing characters: {remainder} in datespec: {datespec}",
         )))
     } else {
         Ok((years, months, days))
@@ -46,8 +45,7 @@ fn parse_timespec(timespec: &str) -> Result<(i32, i32, i32), Error> {
 
     if !remainder.is_empty() {
         Err(Error::Parse(format!(
-            "trailing characters: {} in timespec: {}",
-            remainder, timespec
+            "trailing characters: {remainder} in timespec: {timespec}",
         )))
     } else {
         Ok((hours, mins, secs))
