@@ -23,11 +23,11 @@ impl From<scheduler::Error> for Status {
     fn from(item: scheduler::Error) -> Self {
         match item {
             scheduler::Error::InvalidArg(s) => {
-                Status::invalid_argument(format!("invalid argument: {}", s))
+                Status::invalid_argument(format!("invalid argument: {s}"))
             }
-            scheduler::Error::Runner(e) => Status::aborted(format!("failed to run test: {}", e)),
+            scheduler::Error::Runner(e) => Status::aborted(format!("failed to run test: {e}")),
             scheduler::Error::DataSwitch(e) => {
-                Status::not_found(format!("data switch failed to find data: {}", e))
+                Status::not_found(format!("data switch failed to find data: {e}"))
             }
         }
     }
@@ -60,7 +60,7 @@ impl Rove for Scheduler {
                 ),
             },
             time_resolution: RelativeDuration::parse_from_iso8601(&req.time_resolution)
-                .map_err(|e| Status::invalid_argument(format!("invalid time_resolution: {}", e)))?,
+                .map_err(|e| Status::invalid_argument(format!("invalid time_resolution: {e}")))?,
         };
 
         // TODO: implementing From<pb::validate_request::SpaceSpec> for SpaceSpec
